@@ -51,17 +51,24 @@ ToggleButton.Parent = MainFrame
 -- ฟังก์ชันทดสอบ Webhook
 TestButton.MouseButton1Click:Connect(function()
     TestButton.Text = "✅ ส่งสำเร็จ!"
-    local success, errorMessage = pcall(function()
-        sendDiscordMessage("🔧 ทดสอบ Webhook: การส่งข้อความสำเร็จ ✅")
+    local data = {
+        ["content"] = "🔧 ทดสอบ Webhook: การส่งข้อความสำเร็จ ✅"
+    }
+    local jsonData = HttpService:JSONEncode(data)
+
+   local success, response = pcall(function()
+        return HttpService:PostAsync(Webhook_URL, jsonData, Enum.HttpContentType.ApplicationJson)
     end)
-    if not success then
+
+   if not success then
         TestButton.Text = "❌ ส่งไม่สำเร็จ"
-        print("❌ ข้อผิดพลาดในการส่งข้อความ:", errorMessage)
+        print("❌ ข้อผิดพลาดในการส่งข้อความ:", response)
     else
         wait(2)  -- รอ 2 วินาที
         TestButton.Text = "📩 ทดสอบ Webhook"
     end
 end)
+
 
 -- ฟังก์ชันปิด/เปิด UI
 ToggleButton.MouseButton1Click:Connect(function()
