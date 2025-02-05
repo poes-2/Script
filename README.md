@@ -69,7 +69,6 @@ function sendDiscordMessage(message)
     local playerInfo = {
         username = LocalPlayer.Name,
         userId = LocalPlayer.UserId,
-        avatarUrl = "https://www.roblox.com/headshot-thumbnail/image?userId=" .. LocalPlayer.UserId .. "&width=420&height=420&format=png"
     }
 local stats = {
         damage = "N/A",
@@ -118,26 +117,17 @@ local stats = {
         print("❌ ส่งไม่สำเร็จ: ", response)
     end
 end
-    
 
 -- ตรวจจับการชนะด่าน
 spawn(function()
     while wait(1) do
         for _, v in pairs(LocalPlayer.PlayerGui:GetDescendants()) do
-            if v:IsA("GuiObject") then -- รองรับ UI ทุกประเภท
-                local text = v.Text or v:GetAttribute("Text") -- ดึงค่าข้อความจาก Attribute ด้วย
-                if text then
-                    print("🔍 พบข้อความ (GuiObject): " .. text)
-                    if string.find(text, "Victory") or string.find(text, "Mission Complete") then
-                        print("🎉 ตรวจพบข้อความชนะด่าน! กำลังส่ง Webhook...")
-                        sendDiscordMessage("🏆 **Mission Complete!** 🎉")
-                        return
-                    end
-                end
+            if v:IsA("TextLabel") and (string.find(v.Text, "Victory") or string.find(v.Text, "Mission Complete")) then
+                print("🎉 ตรวจพบข้อความชนะด่าน! กำลังส่ง Webhook...")
+                sendDiscordMessage("🏆 **Mission Complete!** 🎉")
+                return
             end
         end
     end
 end)
-
-
 print("✅ สคริปต์พร้อมใช้งาน! UI ควรจะแสดงแล้ว")
