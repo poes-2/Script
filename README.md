@@ -27,6 +27,35 @@ Title.BackgroundTransparency = 1
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 16
 Title.Parent = MainFrame
+local HttpService = game:GetService("HttpService")
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local Webhook_URL = "https://discord.com/api/webhooks/1336650358130343989/SnQRVJtPPbHaig37At3lDMbR5xf5kheipbnG6rrjhM95QZgFkJ5YJJTLlmckEC_zLjuA" -- ใส่ Webhook ของคุณ
+
+local startTime = os.time()
+
+-- สร้าง UI
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Parent = game.CoreGui
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 300, 0, 200)
+MainFrame.Position = UDim2.new(0.5, -150, 0.5, -100)
+MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+MainFrame.Parent = ScreenGui
+
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0, 10)
+UICorner.Parent = MainFrame
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, 0, 0, 30)
+Title.Text = "Anime Adventure Webhook"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.BackgroundTransparency = 1
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 16
+Title.Parent = MainFrame
 
 local TestButton = Instance.new("TextButton")
 TestButton.Size = UDim2.new(0.8, 0, 0, 40)
@@ -51,9 +80,16 @@ ToggleButton.Parent = MainFrame
 -- ฟังก์ชันทดสอบ Webhook
 TestButton.MouseButton1Click:Connect(function()
     TestButton.Text = "✅ ส่งสำเร็จ!"
-    sendDiscordMessage("🔧 ทดสอบ Webhook: การส่งข้อความสำเร็จ ✅")
-    wait(2)  -- รอ 2 วินาที
-    TestButton.Text = "📩 ทดสอบ Webhook"
+    local success, errorMessage = pcall(function()
+        sendDiscordMessage("🔧 ทดสอบ Webhook: การส่งข้อความสำเร็จ ✅")
+    end)
+    if not success then
+        TestButton.Text = "❌ ส่งไม่สำเร็จ"
+        print("❌ ข้อผิดพลาดในการส่งข้อความ:", errorMessage)
+    else
+        wait(2)  -- รอ 2 วินาที
+        TestButton.Text = "📩 ทดสอบ Webhook"
+    end
 end)
 
 -- ฟังก์ชันปิด/เปิด UI
