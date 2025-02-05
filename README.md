@@ -50,9 +50,9 @@ ToggleButton.Parent = MainFrame
 
 -- ฟังก์ชันทดสอบ Webhook
 TestButton.MouseButton1Click:Connect(function()
-    sendDiscordMessage("🔧 ทดสอบ Webhook: การส่งข้อความสำเร็จ ✅")
     TestButton.Text = "✅ ส่งสำเร็จ!"
-    wait(2)  -- รอ 2 วินาทีเพื่อให้ข้อความแสดง
+    sendDiscordMessage("🔧 ทดสอบ Webhook: การส่งข้อความสำเร็จ ✅")
+    wait(2)  -- รอ 2 วินาที
     TestButton.Text = "📩 ทดสอบ Webhook"
 end)
 
@@ -69,14 +69,15 @@ function sendDiscordMessage(message)
     local playerInfo = {
         username = LocalPlayer.Name,
         userId = LocalPlayer.UserId,
+        avatarUrl = "https://www.roblox.com/headshot-thumbnail/image?userId=" .. LocalPlayer.UserId .. "&width=420&height=420&format=png" -- กำหนด avatarUrl
     }
-local stats = {
+    local stats = {
         damage = "N/A",
         kills = "N/A",
         waves = "N/A"
     }
 
-   for _, v in pairs(LocalPlayer.PlayerGui:GetDescendants()) do
+    for _, v in pairs(LocalPlayer.PlayerGui:GetDescendants()) do
         if v:IsA("TextLabel") then
             if string.find(v.Text, "Damage:") then
                 stats.damage = v.Text:gsub("Damage: ", "")
@@ -88,7 +89,7 @@ local stats = {
         end
     end
 
-   local data = {
+    local data = {
         ["username"] = "Anime Adventures Bot",
         ["avatar_url"] = playerInfo.avatarUrl,
         ["embeds"] = {{
@@ -105,13 +106,13 @@ local stats = {
         }}
     }
 
-   local jsonData = HttpService:JSONEncode(data)
+    local jsonData = HttpService:JSONEncode(data)
 
-   local success, response = pcall(function()
+    local success, response = pcall(function()
         return HttpService:PostAsync(Webhook_URL, jsonData, Enum.HttpContentType.ApplicationJson)
     end)
 
-   if success then
+    if success then
         print("✅ ส่งข้อมูลสำเร็จ!")
     else
         print("❌ ส่งไม่สำเร็จ: ", response)
@@ -132,4 +133,5 @@ spawn(function()
         end
     end
 end)
+
 print("✅ สคริปต์พร้อมใช้งาน! UI ควรจะแสดงแล้ว")
