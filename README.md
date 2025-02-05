@@ -1,7 +1,7 @@
 local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
-local Webhook_URL = "https://discord.com/api/webhooks/1336650358130343989/SnQRVJtPPbHaig37At3lDMbR5xf5kheipbnG6rrjhM95QZgFkJ5YJJTLlmckEC_zLjuA"
+local Webhook_URL = "https://discord.com/api/webhooks/1336650358130343989/SnQRVJtPPbHaig37At3lDMbR5xf5kheipbnG6rrjhM95QZgFkJ5YJJTLlmckEC_zLjuA" -- ใส่ Webhook ของคุณ
 
 local startTime = os.time()
 
@@ -34,23 +34,15 @@ TestButton.Font = Enum.Font.Gotham
 TestButton.TextSize = 16
 TestButton.Parent = MainFrame
 
-local ToggleButton = Instance.new("TextButton")
-ToggleButton.Size = UDim2.new(0.8, 0, 0, 40)
-ToggleButton.Position = UDim2.new(0.1, 0, 0.7, 0)
-ToggleButton.Text = "👁️ ซ่อน UI"
-ToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-ToggleButton.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
-ToggleButton.Font = Enum.Font.Gotham
-ToggleButton.TextSize = 16
-ToggleButton.Parent = MainFrame
+local function sendDiscordMessage(message)
+    local jsonData = HttpService:JSONEncode({
+        ["content"] = message
+    })
 
--- ฟังก์ชันส่ง Webhook
-function sendDiscordMessage(message)
-    local jsonData = HttpService:JSONEncode({["content"] = message})
     local success, response = pcall(function()
         return HttpService:PostAsync(Webhook_URL, jsonData, Enum.HttpContentType.ApplicationJson)
     end)
-    
+
     if success then
         print("✅ ส่งข้อมูลสำเร็จ!")
     else
@@ -58,26 +50,69 @@ function sendDiscordMessage(message)
     end
 end
 
--- ฟังก์ชันทดสอบ Webhook
 TestButton.MouseButton1Click:Connect(function()
-    sendDiscordMessage("✅ ทดสอบ Webhook สำเร็จ!")
+    sendDiscordMessage("🛠 ทดสอบ Webhook: ข้อความนี้ถูกส่งจาก UI")
 end)
 
--- ฟังก์ชันปิด/เปิด UI
-ToggleButton.MouseButton1Click:Connect(function()
-    MainFrame.Visible = not MainFrame.Visible
-    ToggleButton.Text = MainFrame.Visible and "👁️ ซ่อน UI" or "👁️ แสดง UI"
-end)
-
--- ฟังก์ชันส่งข้อมูลไอเทมทุก 10 นาที
-spawn(function()
-    while true do
-        wait(600) -- รอ 10 นาที
-        local inventory = "\n"
-        for _, item in pairs(LocalPlayer.Backpack:GetChildren()) do
-            inventory = inventory .. "- " .. item.Name .. "\n"
+local function sendGameStats()
+    local elapsedTime = os.time() - startTime
+    local playerInfo = {
+        username = LocalPlayer.Name,
+        userId = LocalPlayer.UserId,
+        avatarUrl = "https://www.roblox.com/headshot-thumbnail/image?userId=" .. LocalPlayer.UserId .. "&width=420&height=420&format=png"
+    }
+    
+    local stats = {
+        damage = "N/A",
+        kills = "N/A",
+        waves = "N/A"
+    }
+    
+    for _, v in pairs(LocalPlayer.PlayerGui:GetDescendants()) do
+        if v:IsA("TextLabel") then
+            if string.find(v.Text, "Damage:") then
+                stats.damage = v.Text:gsub("Damage: ", "")
+            elseif string.find(v.Text, "Kills:") then
+                stats.kills = v.Text:gsub("Kills: ", "")
+            elseif string.find(v.Text, "Wave:") then
+                stats.waves = v.Text:gsub("Wave: ", "")
+            end
         end
-        sendDiscordMessage("📦 **รายการไอเทมของคุณ:** " .. inventory)
+    end
+    
+    local data = {
+        ["username"] = "Anime Adventures Bot",
+        ["avatar_url"] = playerInfo.avatarUrl,
+        ["embeds"] = {{
+            ["title"] = "🏆 **Mission Complete!** 🎉",
+            ["color"] = 65280,
+            ["thumbnail"] = { ["url"] = playerInfo.avatarUrl },
+            ["fields"] = {
+                { ["name"] = "👤 ผู้เล่น", ["value"] = playerInfo.username .. " (ID: " .. playerInfo.userId .. ")", ["inline"] = false },
+                { ["name"] = "🕒 ใช้เวลา", ["value"] = elapsedTime .. " วินาที", ["inline"] = true },
+                { ["name"] = "⚔️ Damage", ["value"] = stats.damage, ["inline"] = true },
+                { ["name"] = "💀 Kills", ["value"] = stats.kills, ["inline"] = true },
+                { ["name"] = "🌊 จำนวน Wave", ["value"] = stats.waves, ["inline"] = true }
+            }
+        }}
+    }
+
+    local jsonData = HttpService:JSONEncode(data)
+    
+    local success, response = pcall(function()
+        return HttpService:PostAsync(Webhook_URL, jsonData, Enum.HttpContentType.ApplicationJson)
+    end)
+
+    if success then
+        print("✅ ส่งข้อมูลสำเร็จ!")
+    else
+        print("❌ ส่งไม่สำเร็จ: ", response)
+    end
+end
+
+spawn(function()
+    while wait(600) do -- ทุก 10 นาที
+        sendGameStats()
     end
 end)
 
