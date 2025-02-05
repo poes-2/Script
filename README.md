@@ -1,7 +1,7 @@
-local HttpService = game:GetService("HttpService")
+end HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
-local Webhook_URL = "https://discord.com/api/webhooks/1336650358130343989/SnQRVJtPPbHaig37At3lDMbR5xf5kheipbnG6rrjhM95QZgFkJ5YJJTLlmckEC_zLjuA"
+local Webhook_URL = "https://discord.com/api/webhooks/1336650358130343989/SnQRVJtPPbHaig37At3lDMbR5xf5kheipbnG6rrjhM95QZgFkJ5YJJTLlmckEC_zLjuA" -- ใส่ Webhook ของคุณ
 
 local startTime = os.time()
 
@@ -9,7 +9,11 @@ local startTime = os.time()
 function sendDiscordMessage(message)
     local endTime = os.time()
     local elapsedTime = endTime - startTime
-    local avatarUrl = "https://www.roblox.com/headshot-thumbnail/image?userId=" .. LocalPlayer.UserId .. "&width=420&height=420&format=png"
+    local playerInfo = {
+        username = LocalPlayer.Name,
+        userId = LocalPlayer.UserId,
+    }
+    local avatarUrl = "https://www.roblox.com/headshot-thumbnail/image?userId=" .. playerInfo.userId .. "&width=420&height=420&format=png"
     
    local stats = {
         damage = "N/A",
@@ -37,7 +41,7 @@ function sendDiscordMessage(message)
             ["color"] = 65280,
             ["thumbnail"] = { ["url"] = avatarUrl },
             ["fields"] = {
-                { ["name"] = "👤 ผู้เล่น", ["value"] = LocalPlayer.Name .. " (ID: " .. LocalPlayer.UserId .. ")", ["inline"] = false },
+                { ["name"] = "👤 ผู้เล่น", ["value"] = playerInfo.username .. " (ID: " .. playerInfo.userId .. ")", ["inline"] = false },
                 { ["name"] = "🕒 ใช้เวลา", ["value"] = elapsedTime .. " วินาที", ["inline"] = true },
                 { ["name"] = "⚔️ Damage", ["value"] = stats.damage, ["inline"] = true },
                 { ["name"] = "💀 Kills", ["value"] = stats.kills, ["inline"] = true },
@@ -47,23 +51,23 @@ function sendDiscordMessage(message)
     }
 
    local jsonData = HttpService:JSONEncode(data)
-   local success, response = pcall(function()
+    local success, response = pcall(function()
         return HttpService:PostAsync(Webhook_URL, jsonData, Enum.HttpContentType.ApplicationJson)
     end)
-
+    
    if success then
         print("✅ ส่งข้อมูลสำเร็จ!")
-   else
+    else
         print("❌ ส่งไม่สำเร็จ: ", response)
-   end
+    end
 end
 
--- ตรวจจับการชนะด่าน (Debug UI ทุกข้อความที่เจอ)
+-- ตรวจจับการชนะด่าน
 spawn(function()
     while wait(1) do
         for _, v in pairs(LocalPlayer.PlayerGui:GetDescendants()) do
-            if v:IsA("GuiObject") then -- ตรวจทุกประเภทของ UI
-                local text = v.Text or v:GetAttribute("Text")
+            if v:IsA("GuiObject") then -- ตรวจจับ UI ทุกประเภท
+                local text = v.Text or v:GetAttribute("Text") -- ดึงค่าข้อความจาก Attribute ด้วย
                 if text then
                     print("🔍 พบข้อความใน UI: " .. text)
                     if string.find(text, "Victory") or string.find(text, "Mission Complete") then
@@ -76,5 +80,4 @@ spawn(function()
         end
     end
 end)
-
 print("✅ สคริปต์พร้อมใช้งาน! UI ควรจะแสดงแล้ว")
