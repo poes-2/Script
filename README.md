@@ -124,13 +124,15 @@ end
 spawn(function()
     while wait(1) do
         for _, v in pairs(LocalPlayer.PlayerGui:GetDescendants()) do
-            if v:IsA("TextLabel") then
-                print("🔍 พบข้อความ: " .. v.Text) -- ตรวจสอบว่าข้อความอะไรอยู่ใน UI
-
-                if string.find(v.Text, "Victory") or string.find(v.Text, "Mission Complete") then
-                    print("🎉 ตรวจพบข้อความชนะด่าน! กำลังส่ง Webhook...")
-                    sendDiscordMessage("🏆 **Mission Complete!** 🎉")
-                    return
+            if v:IsA("GuiObject") then -- รองรับ UI ทุกประเภท
+                local text = v.Text or v:GetAttribute("Text") -- ดึงค่าข้อความจาก Attribute ด้วย
+                if text then
+                    print("🔍 พบข้อความ (GuiObject): " .. text)
+                    if string.find(text, "Victory") or string.find(text, "Mission Complete") then
+                        print("🎉 ตรวจพบข้อความชนะด่าน! กำลังส่ง Webhook...")
+                        sendDiscordMessage("🏆 **Mission Complete!** 🎉")
+                        return
+                    end
                 end
             end
         end
