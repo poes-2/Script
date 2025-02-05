@@ -64,15 +64,27 @@ end)
 
 -- 📌 ฟังก์ชันทดสอบ Webhook (✅ เพิ่มให้ส่งข้อความไปยัง Webhook)
 function sendTestWebhook()
+    print("🔄 กำลังส่งข้อความทดสอบไปยัง Webhook...") -- Debug
     local data = {
-        ["username"] = "Anime Adventures Bot",
-        ["avatar_url"] = "https://www.roblox.com/headshot-thumbnail/image?userId=" .. LocalPlayer.UserId .. "&width=420&height=420&format=png",
         ["content"] = "✅ **ทดสอบ Webhook!** ข้อความนี้ถูกส่งจากสคริปต์"
     }
 
     local jsonData = HttpService:JSONEncode(data)
-    HttpService:PostAsync(Webhook_URL, jsonData, Enum.HttpContentType.ApplicationJson)
+    local response = request({
+        Url = Webhook_URL,
+        Method = "POST",
+        Headers = {["Content-Type"] = "application/json"},
+        Body = jsonData
+    })
+
+    if response.Success then
+        print("✅ ส่งสำเร็จ!")
+    else
+        print("❌ ส่งไม่สำเร็จ! Error:", response.StatusMessage)
+    end
 end
+
+
 
 -- 📌 ฟังก์ชันส่ง Webhook เมื่อจบด่าน
 function sendDiscordMessage()
