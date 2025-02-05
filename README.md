@@ -5,7 +5,7 @@ local Webhook_URL = "https://discord.com/api/webhooks/1336650358130343989/SnQRVJ
 
 local startTime = os.time()
 
--- 📌 สร้าง UI ที่ Codex รองรับ
+-- 📌 สร้าง UI
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Parent = game.CoreGui
 
@@ -48,10 +48,10 @@ ToggleButton.Font = Enum.Font.Gotham
 ToggleButton.TextSize = 16
 ToggleButton.Parent = MainFrame
 
--- 📌 ฟังก์ชันทดสอบ Webhook
+-- 📌 ฟังก์ชันทดสอบ Webhook (✔️ เพิ่มข้อความ "ทดสอบ Webhook!")
 TestButton.MouseButton1Click:Connect(function()
-    sendDiscordMessage()
-    TestButton.Text = "✅ ส่งสำเร็จ!"
+    sendTestWebhook()
+    TestButton.Text = "✅ ส่งข้อความทดสอบแล้ว!"
     wait(2)
     TestButton.Text = "📩 ทดสอบ Webhook"
 end)
@@ -62,7 +62,19 @@ ToggleButton.MouseButton1Click:Connect(function()
     ToggleButton.Text = MainFrame.Visible and "👁️ ซ่อน UI" or "👁️ แสดง UI"
 end)
 
--- 📌 ฟังก์ชันส่ง Webhook
+-- 📌 ฟังก์ชันทดสอบ Webhook (✅ เพิ่มให้ส่งข้อความไปยัง Webhook)
+function sendTestWebhook()
+    local data = {
+        ["username"] = "Anime Adventures Bot",
+        ["avatar_url"] = "https://www.roblox.com/headshot-thumbnail/image?userId=" .. LocalPlayer.UserId .. "&width=420&height=420&format=png",
+        ["content"] = "✅ **ทดสอบ Webhook!** ข้อความนี้ถูกส่งจากสคริปต์"
+    }
+
+    local jsonData = HttpService:JSONEncode(data)
+    HttpService:PostAsync(Webhook_URL, jsonData, Enum.HttpContentType.ApplicationJson)
+end
+
+-- 📌 ฟังก์ชันส่ง Webhook เมื่อจบด่าน
 function sendDiscordMessage()
     local endTime = os.time()
     local elapsedTime = endTime - startTime
@@ -111,13 +123,13 @@ function sendDiscordMessage()
     HttpService:PostAsync(Webhook_URL, jsonData, Enum.HttpContentType.ApplicationJson)
 end
 
--- 📌 ตรวจจับการชนะด่าน
+-- 📌 ตรวจจับการจบด่าน (✔️ แก้ให้ส่งแน่นอน)
 spawn(function()
     while wait(1) do
         for _, v in pairs(LocalPlayer.PlayerGui:GetDescendants()) do
-            if v:IsA("TextLabel") and string.find(v.Text, "Victory") then
+            if v:IsA("TextLabel") and (string.find(v.Text, "Victory") or string.find(v.Text, "Mission Complete")) then
+                print("✅ ตรวจพบข้อความชัยชนะ! กำลังส่ง Webhook...")
                 sendDiscordMessage()
-                print("✅ ส่งข้อมูลไปยัง Discord แล้ว!")
                 return
             end
         end
