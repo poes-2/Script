@@ -52,7 +52,7 @@ ToggleButton.Parent = MainFrame
 TestButton.MouseButton1Click:Connect(function()
     sendDiscordMessage("🔧 ทดสอบ Webhook: การส่งข้อความสำเร็จ ✅")
     TestButton.Text = "✅ ส่งสำเร็จ!"
-    wait(2)
+    wait(2)  -- รอ 2 วินาทีเพื่อให้ข้อความแสดง
     TestButton.Text = "📩 ทดสอบ Webhook"
 end)
 
@@ -122,10 +122,12 @@ end
 spawn(function()
     while wait(1) do
         for _, v in pairs(LocalPlayer.PlayerGui:GetDescendants()) do
-            if v:IsA("TextLabel") and (string.find(v.Text, "Victory") or string.find(v.Text, "Mission Complete")) then
-                print("🎉 ตรวจพบข้อความชนะด่าน! กำลังส่ง Webhook...")
-                sendDiscordMessage("🏆 **Mission Complete!** 🎉")
-                return
+            if v:IsA("TextLabel") then
+                if string.find(v.Text, "Victory") or string.find(v.Text, "Mission Complete") then
+                    print("🎉 ตรวจพบข้อความชนะด่าน! กำลังส่ง Webhook...")
+                    sendDiscordMessage("🏆 **Mission Complete!** 🎉")
+                    return  -- ส่งข้อความและหยุดการตรวจสอบ
+                end
             end
         end
     end
