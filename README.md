@@ -5,7 +5,7 @@ local Webhook_URL = "https://discord.com/api/webhooks/1336650358130343989/SnQRVJ
 
 local startTime = os.time()
 
--- 📌 สร้าง UI
+-- สร้าง UI
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Parent = game.CoreGui
 
@@ -48,46 +48,22 @@ ToggleButton.Font = Enum.Font.Gotham
 ToggleButton.TextSize = 16
 ToggleButton.Parent = MainFrame
 
--- 📌 ฟังก์ชันทดสอบ Webhook (✔️ เพิ่มข้อความ "ทดสอบ Webhook!")
+-- ฟังก์ชันทดสอบ Webhook
 TestButton.MouseButton1Click:Connect(function()
-    sendTestWebhook()
-    TestButton.Text = "✅ ส่งข้อความทดสอบแล้ว!"
+    sendDiscordMessage("🔧 ทดสอบ Webhook: การส่งข้อความสำเร็จ ✅")
+    TestButton.Text = "✅ ส่งสำเร็จ!"
     wait(2)
     TestButton.Text = "📩 ทดสอบ Webhook"
 end)
 
--- 📌 ฟังก์ชันปิด/เปิด UI
+-- ฟังก์ชันปิด/เปิด UI
 ToggleButton.MouseButton1Click:Connect(function()
     MainFrame.Visible = not MainFrame.Visible
     ToggleButton.Text = MainFrame.Visible and "👁️ ซ่อน UI" or "👁️ แสดง UI"
 end)
 
--- 📌 ฟังก์ชันทดสอบ Webhook (✅ เพิ่มให้ส่งข้อความไปยัง Webhook)
-function sendTestWebhook()
-    print("🔄 กำลังส่งข้อความทดสอบไปยัง Webhook...") -- Debug
-    local data = {
-        ["content"] = "✅ **ทดสอบ Webhook!** ข้อความนี้ถูกส่งจากสคริปต์"
-    }
-
-    local jsonData = HttpService:JSONEncode(data)
-    local response = request({
-        Url = Webhook_URL,
-        Method = "POST",
-        Headers = {["Content-Type"] = "application/json"},
-        Body = jsonData
-    })
-
-    if response.Success then
-        print("✅ ส่งสำเร็จ!")
-    else
-        print("❌ ส่งไม่สำเร็จ! Error:", response.StatusMessage)
-    end
-end
-
-
-
--- 📌 ฟังก์ชันส่ง Webhook เมื่อจบด่าน
-function sendDiscordMessage()
+-- ฟังก์ชันส่ง Webhook
+function sendDiscordMessage(message)
     local endTime = os.time()
     local elapsedTime = endTime - startTime
     local playerInfo = {
@@ -118,7 +94,7 @@ function sendDiscordMessage()
         ["username"] = "Anime Adventures Bot",
         ["avatar_url"] = playerInfo.avatarUrl,
         ["embeds"] = {{
-            ["title"] = "✅ **Mission Complete!** 🎉",
+            ["title"] = message,
             ["color"] = 65280,
             ["thumbnail"] = {["url"] = playerInfo.avatarUrl},
             ["fields"] = {
@@ -132,16 +108,25 @@ function sendDiscordMessage()
     }
 
     local jsonData = HttpService:JSONEncode(data)
-    HttpService:PostAsync(Webhook_URL, jsonData, Enum.HttpContentType.ApplicationJson)
+
+    local success, response = pcall(function()
+        return HttpService:PostAsync(Webhook_URL, jsonData, Enum.HttpContentType.ApplicationJson)
+    end)
+
+    if success then
+        print("✅ ส่งข้อมูลสำเร็จ!")
+    else
+        print("❌ ส่งไม่สำเร็จ: ", response)
+    end
 end
 
--- 📌 ตรวจจับการจบด่าน (✔️ แก้ให้ส่งแน่นอน)
+-- ตรวจจับการชนะด่าน
 spawn(function()
     while wait(1) do
         for _, v in pairs(LocalPlayer.PlayerGui:GetDescendants()) do
             if v:IsA("TextLabel") and (string.find(v.Text, "Victory") or string.find(v.Text, "Mission Complete")) then
-                print("✅ ตรวจพบข้อความชัยชนะ! กำลังส่ง Webhook...")
-                sendDiscordMessage()
+                print("🎉 ตรวจพบข้อความชนะด่าน! กำลังส่ง Webhook...")
+                sendDiscordMessage("🏆 **Mission Complete!** 🎉")
                 return
             end
         end
