@@ -1,7 +1,7 @@
 local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
-local Webhook_URL = "https://discord.com/api/webhooks/1336650353113956383/KeFEPOairqj_C-UB8eaL-XlbI_4rmh2cI3gfK8CWZFN6_mQSCvEQPqS3yJoT63mKj1j7" -- ใส่ Webhook ของคุณ
+local Webhook_URL = "https://discord.com/api/webhooks/1336650358130343989/SnQRVJtPPbHaig37At3lDMbR5xf5kheipbnG6rrjhM95QZgFkJ5YJJTLlmckEC_zLjuA" -- ใส่ Webhook ของคุณ
 
 local startTime = os.time()
 
