@@ -15,13 +15,13 @@ function sendDiscordMessage(message)
     }
     local avatarUrl = "https://www.roblox.com/headshot-thumbnail/image?userId=" .. playerInfo.userId .. "&width=420&height=420&format=png"
     
-   local stats = {
+    local stats = {
         damage = "N/A",
         kills = "N/A",
         waves = "N/A"
     }
 
-   for _, v in pairs(LocalPlayer.PlayerGui:GetDescendants()) do
+    for _, v in pairs(LocalPlayer.PlayerGui:GetDescendants()) do
         if v:IsA("TextLabel") then
             if string.find(v.Text, "Damage:") then
                 stats.damage = v.Text:gsub("Damage: ", "")
@@ -33,7 +33,7 @@ function sendDiscordMessage(message)
         end
     end
 
-   local data = {
+    local data = {
         ["username"] = "Anime Adventures Bot",
         ["avatar_url"] = avatarUrl,
         ["embeds"] = {{
@@ -50,12 +50,12 @@ function sendDiscordMessage(message)
         }}
     }
 
-   local jsonData = HttpService:JSONEncode(data)
+    local jsonData = HttpService:JSONEncode(data)
     local success, response = pcall(function()
         return HttpService:PostAsync(Webhook_URL, jsonData, Enum.HttpContentType.ApplicationJson)
     end)
     
-   if success then
+    if success then
         print("✅ ส่งข้อมูลสำเร็จ!")
     else
         print("❌ ส่งไม่สำเร็จ: ", response)
