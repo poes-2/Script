@@ -124,13 +124,18 @@ end
 spawn(function()
     while wait(1) do
         for _, v in pairs(LocalPlayer.PlayerGui:GetDescendants()) do
-            if v:IsA("TextLabel") and (string.find(v.Text, "Victory") or string.find(v.Text, "Mission Complete")) then
-                print("🎉 ตรวจพบข้อความชนะด่าน! กำลังส่ง Webhook...")
-                sendDiscordMessage("🏆 **Mission Complete!** 🎉")
-                return
+            if v:IsA("TextLabel") then
+                print("🔍 พบข้อความ: " .. v.Text) -- ตรวจสอบว่าข้อความอะไรอยู่ใน UI
+
+                if string.find(v.Text, "Victory") or string.find(v.Text, "Mission Complete") then
+                    print("🎉 ตรวจพบข้อความชนะด่าน! กำลังส่ง Webhook...")
+                    sendDiscordMessage("🏆 **Mission Complete!** 🎉")
+                    return
+                end
             end
         end
     end
 end)
+
 
 print("✅ สคริปต์พร้อมใช้งาน! UI ควรจะแสดงแล้ว")
