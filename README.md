@@ -49,25 +49,6 @@ ToggleButton.TextSize = 16
 ToggleButton.Parent = MainFrame
 
 -- ฟังก์ชันทดสอบ Webhook
-TestButton.MouseButton1Click:Connect(function()
-    TestButton.Text = "✅ ส่งสำเร็จ!"
-    local data = {
-        ["content"] = "🔧 ทดสอบ Webhook: การส่งข้อความสำเร็จ ✅"
-    }
-    local jsonData = HttpService:JSONEncode(data)
-
-   local success, response = pcall(function()
-        return HttpService:PostAsync(Webhook_URL, jsonData, Enum.HttpContentType.ApplicationJson)
-    end)
-
-   if not success then
-        TestButton.Text = "❌ ส่งไม่สำเร็จ"
-        print("❌ ข้อผิดพลาดในการส่งข้อความ:", response)
-    else
-        wait(2)  -- รอ 2 วินาที
-        TestButton.Text = "📩 ทดสอบ Webhook"
-    end
-end)
 
 
 -- ฟังก์ชันปิด/เปิด UI
@@ -83,7 +64,21 @@ function sendDiscordMessage(message)
     local playerInfo = {
         username = LocalPlayer.Name,
         userId = LocalPlayer.UserId,
-        avatarUrl = "https://www.roblox.com/headshot-thumbnail/image?userId=" .. LocalPlayer.UserId .. "&width=420&height=420&format=png" -- กำหนด avatarUrl
+        avatarUrl = "https://www.roblox.com/headshot-thumbnail/image?userId=" .. LocalPlayer.UserId .. "&width=420&height=420&format=png" -- กำหนด avatafunction sendDiscordMessage(message)
+    local jsonData = HttpService:JSONEncode({
+        ["content"] = message
+    })
+
+   local success, response = pcall(function()
+        return HttpService:PostAsync(Webhook_URL, jsonData, Enum.HttpContentType.ApplicationJson)
+    end)
+
+   if success then
+        print("✅ ส่งข้อมูลสำเร็จ!")
+    else
+        warn("❌ ส่งไม่สำเร็จ! ข้อผิดพลาด: " .. tostring(response))  -- แสดงข้อความ Error
+    end
+endrUrl
     }
     local stats = {
         damage = "N/A",
