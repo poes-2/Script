@@ -40,14 +40,15 @@ end
 -- 📌 ตรวจจับ "จบด่าน" แล้วส่งข้อความอัตโนมัติ
 game:GetService("Players").PlayerRemoving:Connect(function(player)
     if player == game.Players.LocalPlayer then
-        -- ค่าตัวอย่าง (ต้องดึงค่าจริงจากเกม)
+        -- ดึงค่าจาก Stats หรือ DataStore ในเกม (ต้องตรวจสอบว่าตัวแปรพวกนี้มีอยู่จริง)
         local username = player.Name
-        local tostring(level) = player.level
-        local matchDMG = 79.08
-        local wave = 15
-        local result = "VICTORIA"
-        local rewards = player.rewards
-        
+        local level = player:FindFirstChild("Level") and player.Level.Value or "N/A"
+        local matchDMG = player:FindFirstChild("MatchDMG") and player.MatchDMG.Value or 0
+        local wave = player:FindFirstChild("Wave") and player.Wave.Value or 0
+        local result = player:FindFirstChild("Result") and player.Result.Value or "UNKNOWN"
+        local rewards = player:FindFirstChild("Rewards") and player.Rewards.Value or "None"
+
+        -- ส่งข้อมูลไปยัง Webhook
         sendWebhookMessage(username, level, matchDMG, wave, result, rewards)
     end
 end)
