@@ -42,13 +42,11 @@ game:GetService("Players").PlayerRemoving:Connect(function(player)
     if player == game.Players.LocalPlayer then
         -- ค่าตัวอย่าง (ต้องดึงค่าจริงจากเกม)
         local username = player.Name
-        local level = 147
+        local tostring(level) = player.level
         local matchDMG = 79.08
         local wave = 15
-        local result = "DEFEAT"
-        local result = "VICTORY"
-        local result = "NEXT"
-        local rewards = "+24 Assassin Token, +8 Christmas Present, +75 Gems"
+        local result = "VICTORIA"
+        local rewards = player.rewards
         
         sendWebhookMessage(username, level, matchDMG, wave, result, rewards)
     end
