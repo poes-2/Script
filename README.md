@@ -9,7 +9,7 @@ function sendWebhookMessage(username, level, matchDMG, wave, result, rewards)
     local data = {
         ["embeds"] = {{
             ["title"] = "Anime Adventures - Match Result",
-            ["color"] = 5814783,
+            ["color"] = (result == "VICTORY") and 5814783 or 16711680,
             ["fields"] = {
                 {["name"] = "👤 User", ["value"] = username, ["inline"] = true},
                 {["name"] = "🔢 Level", ["value"] = tostring(level), ["inline"] = true},
@@ -37,27 +37,41 @@ function sendWebhookMessage(username, level, matchDMG, wave, result, rewards)
     end
 end
 
--- 📌 ฟังก์ชันตรวจจับข้อความ "NEXT" บนหน้าจอ
-local function checkNextText()
+-- ตรวจจับว่าด่านจบไปแล้วหรือไม่
+local lastResult = nil  
+local isProcessing = false -- ตัวแปรป้องกันการส่งซ้ำ
+
+local function checkEndGameText()
+    if isProcessing then return end -- ถ้ากำลังส่งอยู่ หยุดก่อน
+
     local player = game.Players.LocalPlayer
     if not player then return end
 
-    local screenGui = player:FindFirstChild("PlayerGui") -- ค้นหา GUI ของผู้เล่น
+    local screenGui = player:FindFirstChild("PlayerGui") 
     if screenGui then
         for _, guiObject in pairs(screenGui:GetDescendants()) do
             if guiObject:IsA("TextLabel") or guiObject:IsA("TextButton") then
-                if string.find(guiObject.Text, "NEXT") then
-                    print("🔍 พบข้อความ NEXT บนหน้าจอ! -> ส่งข้อมูลไปยัง Webhook")
-                    
-                    -- ดึงค่าจากเกม
-                    local username = player.Name
-                    local level = player:FindFirstChild("level") and player.level.Value or "N/A"
-                    local matchDMG = game:GetService("ReplicatedStorage"):FindFirstChild("MatchDMG") and game:GetService("ReplicatedStorage").MatchDMG.Value or 0
-                    local wave = game:GetService("ReplicatedStorage"):FindFirstChild("Wave") and game:GetService("ReplicatedStorage").Wave.Value or 0
-                    local result = "VICTORY" -- อาจต้องเปลี่ยนตามเกม
-                    local rewards = game:GetService("ReplicatedStorage"):FindFirstChild("Rewards") and game:GetService("ReplicatedStorage").Rewards.Value or "None"
+                local text = guiObject.Text:upper()
+                if text == "VICTORY" or text == "DEFEAT" then
+                    if lastResult ~= text then 
+                        isProcessing = true -- ป้องกันการส่งซ้ำ
+                        print("🔍 พบข้อความ " .. text .. " บนหน้าจอ! -> ส่งข้อมูลไปยัง Webhook")
+                        
+                        -- ดึงค่าจากเกม
+                        local username = player.Name
+                        local level = player:FindFirstChild("level") and player.level.Value or "N/A"
+                        local matchDMG = game:GetService("ReplicatedStorage"):FindFirstChild("MatchDMG") and game:GetService("ReplicatedStorage").MatchDMG.Value or 0
+                        local wave = game:GetService("ReplicatedStorage"):FindFirstChild("Wave") and game:GetService("ReplicatedStorage").Wave.Value or 0
+                        local rewards = game:GetService("ReplicatedStorage"):FindFirstChild("Rewards") and game:GetService("ReplicatedStorage").Rewards.Value or "None"
 
-                    sendWebhookMessage(username, level, matchDMG, wave, result, rewards)
+                        sendWebhookMessage(username, level, matchDMG, wave, text, rewards)
+
+                        lastResult = text  -- บันทึกผลล่าสุด
+                        wait(10) -- Cooldown 10 วินาที
+                        isProcessing = false -- ปลดล็อกให้ส่งได้ใหม่
+                    else
+                        print("⚠️ ข้อความเดิมถูกตรวจพบแล้ว ไม่ส่งซ้ำ")
+                    end
                     break
                 end
             end
@@ -67,5 +81,5 @@ end
 
 -- 🔄 ตรวจสอบ GUI ทุกๆ 2 วินาที
 while wait(2) do
-    checkNextText()
+    checkEndGameText()
 end
