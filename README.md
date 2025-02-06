@@ -37,16 +37,18 @@ function sendWebhookMessage(username, level, matchDMG, wave, result, rewards)
     end
 end
 
--- 📌 ตรวจจับ "จบด่าน" แล้วส่งข้อความอัตโนมัติ
 game:GetService("Players").PlayerRemoving:Connect(function(player)
     if player == game.Players.LocalPlayer then
-        -- ดึงค่าจาก Stats หรือ DataStore ในเกม (ต้องตรวจสอบว่าตัวแปรพวกนี้มีอยู่จริง)
+        -- ค้นหา leaderstats ที่อยู่ใน Player
+        local stats = player:FindFirstChild("leaderstats")
+        
+        -- ดึงค่าต่างๆ จาก leaderstats
         local username = player.Name
-        local level = player:FindFirstChild("Level") and player.Level.Value or "N/A"
-        local matchDMG = player:FindFirstChild("MatchDMG") and player.MatchDMG.Value or 0
-        local wave = player:FindFirstChild("Wave") and player.Wave.Value or 0
-        local result = player:FindFirstChild("Result") and player.Result.Value or "UNKNOWN"
-        local rewards = player:FindFirstChild("Rewards") and player.Rewards.Value or "None"
+        local level = stats and stats:FindFirstChild("Level") and stats.Level.Value or "N/A"
+        local matchDMG = stats and stats:FindFirstChild("MatchDMG") and stats.MatchDMG.Value or 0
+        local wave = stats and stats:FindFirstChild("Wave") and stats.Wave.Value or 0
+        local result = stats and stats:FindFirstChild("Result") and stats.Result.Value or "UNKNOWN"
+        local rewards = stats and stats:FindFirstChild("Rewards") and stats.Rewards.Value or "None"
 
         -- ส่งข้อมูลไปยัง Webhook
         sendWebhookMessage(username, level, matchDMG, wave, result, rewards)
