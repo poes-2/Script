@@ -1,5 +1,10 @@
-local HttpService = game:GetService("HttpService")
 local WebhookURL = "https://discord.com/api/webhooks/1336650358130343989/SnQRVJtPPbHaig37At3lDMbR5xf5kheipbnG6rrjhM95QZgFkJ5YJJTLlmckEC_zLjuA"
+
+-- ตรวจสอบว่ามีฟังก์ชัน HTTP ที่รองรับ
+local http_request = http_request or request or syn.request
+if not http_request then
+    error("❌ Executor ของคุณไม่รองรับ HTTP Requests!")
+end
 
 -- ฟังก์ชันสำหรับส่ง Webhook
 function sendWebhookMessage(username, level, matchDMG, wave, result, rewards)
@@ -18,16 +23,20 @@ function sendWebhookMessage(username, level, matchDMG, wave, result, rewards)
         }}
     }
 
-   -- แปลงข้อมูลเป็น JSON และส่งไปที่ Webhook
-    local jsonData = HttpService:JSONEncode(data)
+    -- ส่ง HTTP Request
     local success, response = pcall(function()
-        return HttpService:PostAsync(WebhookURL, jsonData, Enum.HttpContentType.ApplicationJson)
+        return http_request({
+            Url = WebhookURL,
+            Method = "POST",
+            Headers = {["Content-Type"] = "application/json"},
+            Body = game:GetService("HttpService"):JSONEncode(data)
+        })
     end)
 
-   if success then
+    if success then
         print("✅ ส่งข้อความสำเร็จ!")
     else
-        warn("❌ ส่งข้อความไม่สำเร็จ: " .. response)
+        warn("❌ ส่งข้อความไม่สำเร็จ: " .. tostring(response))
     end
 end
 
