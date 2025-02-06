@@ -37,20 +37,35 @@ function sendWebhookMessage(username, level, matchDMG, wave, result, rewards)
     end
 end
 
-game:GetService("Players").PlayerRemoving:Connect(function(player)
-    if player == game.Players.LocalPlayer then
-        -- ค้นหา leaderstats ที่อยู่ใน Player
-        local stats = player:FindFirstChild("leaderstats")
-        
-        -- ดึงค่าต่างๆ จาก leaderstats
-        local username = player.Name
-        local level = stats and stats:FindFirstChild("Level") and stats.Level.Value or "N/A"
-        local matchDMG = stats and stats:FindFirstChild("MatchDMG") and stats.MatchDMG.Value or 0
-        local wave = stats and stats:FindFirstChild("Wave") and stats.Wave.Value or 0
-        local result = stats and stats:FindFirstChild("Result") and stats.Result.Value or "UNKNOWN"
-        local rewards = stats and stats:FindFirstChild("Rewards") and stats.Rewards.Value or "None"
+-- 📌 ฟังก์ชันตรวจจับข้อความ "NEXT" บนหน้าจอ
+local function checkNextText()
+    local player = game.Players.LocalPlayer
+    if not player then return end
 
-        -- ส่งข้อมูลไปยัง Webhook
-        sendWebhookMessage(username, level, matchDMG, wave, result, rewards)
+    local screenGui = player:FindFirstChild("PlayerGui") -- ค้นหา GUI ของผู้เล่น
+    if screenGui then
+        for _, guiObject in pairs(screenGui:GetDescendants()) do
+            if guiObject:IsA("TextLabel") or guiObject:IsA("TextButton") then
+                if string.find(guiObject.Text, "NEXT") then
+                    print("🔍 พบข้อความ NEXT บนหน้าจอ! -> ส่งข้อมูลไปยัง Webhook")
+                    
+                    -- ดึงค่าจากเกม
+                    local username = player.Name
+                    local level = player:FindFirstChild("level") and player.level.Value or "N/A"
+                    local matchDMG = game:GetService("ReplicatedStorage"):FindFirstChild("MatchDMG") and game:GetService("ReplicatedStorage").MatchDMG.Value or 0
+                    local wave = game:GetService("ReplicatedStorage"):FindFirstChild("Wave") and game:GetService("ReplicatedStorage").Wave.Value or 0
+                    local result = "VICTORY" -- อาจต้องเปลี่ยนตามเกม
+                    local rewards = game:GetService("ReplicatedStorage"):FindFirstChild("Rewards") and game:GetService("ReplicatedStorage").Rewards.Value or "None"
+
+                    sendWebhookMessage(username, level, matchDMG, wave, result, rewards)
+                    break
+                end
+            end
+        end
     end
-end)
+end
+
+-- 🔄 ตรวจสอบ GUI ทุกๆ 2 วินาที
+while wait(2) do
+    checkNextText()
+end
