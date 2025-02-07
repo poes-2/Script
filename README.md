@@ -4,9 +4,9 @@ if not http_request then
     error("❌ Executor ของคุณไม่รองรับ HTTP Requests!")
 end
 
--- ตัวแปรเก็บสถานะการเล่น
-local gameActive = true  -- เริ่มเกม: true
-local gameEnded = false  -- เกมจบแล้วหรือยัง
+-- ตัวแปรเก็บสถานะเกม
+local gameActive = true
+local gameEnded = false
 
 -- 📌 ฟังก์ชันส่งข้อความ Webhook
 function sendWebhookMessage(username, level, matchDMG, wave, result, rewards)
@@ -55,21 +55,29 @@ local function detectGameState()
                 if guiObject:IsA("TextLabel") or guiObject:IsA("TextButton") then
                     local text = guiObject.Text:upper()
 
-                    -- 🔍 มองหาปุ่ม "NEXT" แปลว่าเกมยังไม่จบ
+                    -- 🔍 ตรวจสอบปุ่ม "NEXT" แต่ถ้าพบมากกว่า 3 ครั้ง ให้ยืนยันว่าเกมยังไม่จบ
                     if text == "NEXT" then
-                        gameEnded = false
-                        return
+                        local nextCount = 0
+                        while wait(1) do
+                            if guiObject.Text:upper() == "NEXT" then
+                                nextCount = nextCount + 1
+                            end
+                            if nextCount > 3 then
+                                gameEnded = false
+                                return
+                            end
+                        end
                     end
 
-                    -- 🏆 ตรวจจับ "VICTORY" หรือ "DEFEAT" เมื่อไม่มีปุ่ม "NEXT"
+                    -- 🏆 ตรวจจับ "VICTORY" หรือ "DEFEAT" เท่านั้น
                     if (text == "VICTORY" or text == "DEFEAT") and not gameEnded then
                         gameEnded = true  -- ป้องกันการส่งข้อความซ้ำ
 
                         -- 📌 ดึงข้อมูลจากเกมจริงๆ
                         local username = player.Name
-                        local level = player:FindFirstChild("Level") and player.Level.Value or "N/A"
-                        local matchDMG = player:FindFirstChild("MatchDMG") and player.MatchDMG.Value or "0"
-                        local wave = player:FindFirstChild("Wave") and player.Wave.Value or "0"
+                        local level = player:FindFirstChild("leaderstats") and player.leaderstats:FindFirstChild("Level") and player.leaderstats.Level.Value or "N/A"
+                        local matchDMG = player:FindFirstChild("MatchStats") and player.MatchStats:FindFirstChild("Damage") and player.MatchStats.Damage.Value or "0"
+                        local wave = player:FindFirstChild("MatchStats") and player.MatchStats:FindFirstChild("Wave") and player.MatchStats.Wave.Value or "0"
                         local rewards = player:FindFirstChild("Rewards") and player.Rewards.Value or "None"
 
                         -- 🔥 ส่งข้อมูลไปยัง Webhook
