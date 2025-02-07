@@ -47,7 +47,7 @@ end
 -- 📌 ฟังก์ชันตรวจสอบข้อมูลของผู้เล่น
 local player = game.Players.LocalPlayer
 
-print("\n🔎 ตรวจสอบโครงสร้างข้อมูลของผู้เล่น...")
+print("\n🔎 ตรวจสอบข้อมูลของผู้เล่น:", player.Name)
 
 -- ตรวจสอบ Children ทั้งหมดของ Player
 for _, child in pairs(player:GetChildren()) do
@@ -59,11 +59,19 @@ for _, child in pairs(player:GetChildren()) do
     end
 end
 
+-- ตรวจสอบ Descendants ทั้งหมด (ลงลึกกว่าปกติ)
+print("\n🔍 Descendants ทั้งหมดใน Player:")
+for _, descendant in pairs(player:GetDescendants()) do
+    print("📜", descendant.Name, "-", descendant.ClassName)
+end
+
+
 
     -- 🔍 ตรวจสอบ Level
     local level = "N/A"
-    if player:FindFirstChild("Stats") and player.Stats:FindFirstChild("Level") then
-        level = player.Stats.Level.Value
+    if player:FindFirstChild("Stats"):FindFirstChild("PlayerLevel")
+    player:FindFirstChild("Backpack")
+    
         print("✅ Level:", level)
     else
         print("⚠️ ไม่พบ Level")
