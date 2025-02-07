@@ -74,11 +74,10 @@ local function detectGameState()
                         gameEnded = true  -- ป้องกันการส่งข้อความซ้ำ
 
                         -- 📌 ดึงข้อมูลจากเกมจริงๆ
-                        local username = player.Name
-                        local level = player:FindFirstChild("leaderstats") and player.leaderstats:FindFirstChild("Level") and player.leaderstats.Level.Value or "N/A"
-                        local matchDMG = player:FindFirstChild("MatchStats") and player.MatchStats:FindFirstChild("Damage") and player.MatchStats.Damage.Value or "0"
-                        local wave = player:FindFirstChild("MatchStats") and player.MatchStats:FindFirstChild("Wave") and player.MatchStats.Wave.Value or "0"
-                        local rewards = player:FindFirstChild("Rewards") and player.Rewards.Value or "None"
+                        local level = player:FindFirstChild("Level") and player.Level.Value or "N/A"
+                        local matchDMG = player:FindFirstChild("Stats") and player.Stats:FindFirstChild("Damage") and player.Stats.Damage.Value or "0"
+                        local wave = player:FindFirstChild("Stats") and player.Stats:FindFirstChild("Wave") and player.Stats.Wave.Value or "0"
+                        local rewards = player:FindFirstChild("Inventory") and player.Inventory:FindFirstChild("LastReward") and player.Inventory.LastReward.Value or "None"
 
                         -- 🔥 ส่งข้อมูลไปยัง Webhook
                         sendWebhookMessage(username, level, matchDMG, wave, text, rewards)
