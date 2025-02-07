@@ -45,34 +45,20 @@ local function sendWebhookMessage(username, level, coins, gems, items)
 end
 
 -- 📌 ฟังก์ชันตรวจสอบข้อมูลของผู้เล่น
-local function checkPlayerStats()
-    local player = game.Players.LocalPlayer
-    if not player then 
-        print("❌ ไม่พบผู้เล่น")
-        return 
-    end
-    if dataSent then return end  -- ถ้าส่งไปแล้วให้หยุด
+local player = game.Players.LocalPlayer
 
-    print("\n🔎 เริ่มตรวจสอบข้อมูลผู้เล่น...")
+print("\n🔎 ตรวจสอบโครงสร้างข้อมูลของผู้เล่น...")
 
-    -- 🔍 ตรวจสอบ leaderstats
-    local coins = "0"
-    local gems = "0"
-    if player:FindFirstChild("leaderstats") then
-        print("✅ พบ leaderstats")
-        if player.leaderstats:FindFirstChild("Coins") then
-            coins = player.leaderstats.Coins.Value
-        else
-            print("⚠️ ไม่พบ Coins ใน leaderstats")
+-- ตรวจสอบ Children ทั้งหมดของ Player
+for _, child in pairs(player:GetChildren()) do
+    print("📂", child.Name, "-", child.ClassName)
+    if child:IsA("Folder") or child:IsA("Model") then
+        for _, subChild in pairs(child:GetChildren()) do
+            print("  📄", subChild.Name, "-", subChild.ClassName, subChild.Value)
         end
-        if player.leaderstats:FindFirstChild("Gems") then
-            gems = player.leaderstats.Gems.Value
-        else
-            print("⚠️ ไม่พบ Gems ใน leaderstats")
-        end
-    else
-        print("❌ ไม่พบ leaderstats")
     end
+end
+
 
     -- 🔍 ตรวจสอบ Level
     local level = "N/A"
