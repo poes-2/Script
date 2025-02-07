@@ -4,22 +4,26 @@ if not http_request then
     error("❌ Executor ของคุณไม่รองรับ HTTP Requests!")
 end
 
--- ตัวแปรเช็คสถานะเกม
-local gameEnded = false
+-- ตัวแปรเช็คว่าเคยส่งข้อมูลไปแล้วหรือยัง
+local dataSent = false
 
--- 📌 ฟังก์ชันส่งข้อความ Webhook
-local function sendWebhookMessage(username, level, matchDMG, wave, result, rewards)
+-- 📌 ฟังก์ชันส่งข้อมูลไปยัง Webhook
+local function sendWebhookMessage(username, level, coins, gems, items)
+    local inventoryList = ""
+    for itemName, amount in pairs(items) do
+        inventoryList = inventoryList .. "- " .. itemName .. ": " .. tostring(amount) .. "\n"
+    end
+
     local data = {
         ["embeds"] = {{
-            ["title"] = "Anime Adventures - Match Result",
-            ["color"] = (result == "VICTORY") and 5814783 or 16711680,
+            ["title"] = "📦 Player Inventory - Anime Adventures",
+            ["color"] = 3447003,
             ["fields"] = {
                 {["name"] = "👤 User", ["value"] = username, ["inline"] = true},
                 {["name"] = "🔢 Level", ["value"] = tostring(level), ["inline"] = true},
-                {["name"] = "🗡️ Match DMG", ["value"] = tostring(matchDMG) .. "M", ["inline"] = true},
-                {["name"] = "⏳ Wave", ["value"] = tostring(wave), ["inline"] = true},
-                {["name"] = "🏆 Result", ["value"] = "**" .. result .. "**", ["inline"] = true},
-                {["name"] = "🎁 Rewards", ["value"] = rewards}
+                {["name"] = "💰 Coins", ["value"] = tostring(coins), ["inline"] = true},
+                {["name"] = "💎 Gems", ["value"] = tostring(gems), ["inline"] = true},
+                {["name"] = "🎒 Inventory", ["value"] = inventoryList}
             }
         }}
     }
@@ -34,65 +38,37 @@ local function sendWebhookMessage(username, level, matchDMG, wave, result, rewar
     end)
 
     if success then
-        print("✅ ส่งข้อความสำเร็จ!")
+        print("✅ ส่งข้อมูลไปยัง Webhook สำเร็จ!")
+        dataSent = true -- ป้องกันการส่งซ้ำ
     else
-        warn("❌ ส่งข้อความไม่สำเร็จ: " .. tostring(response))
+        warn("❌ ส่งข้อมูลไม่สำเร็จ: " .. tostring(response))
     end
 end
 
--- 📌 ฟังก์ชันดึงข้อมูลจากเกม
-local function getGameStats()
+-- 📌 ฟังก์ชันดึงข้อมูลจาก Lobby
+local function checkPlayerStats()
     local player = game.Players.LocalPlayer
-    local damage, wave, result, rewards = "0", "0", "UNKNOWN", "None"
+    if not player then return end
+    if dataSent then return end  -- ถ้าเคยส่งไปแล้วให้หยุด
 
-    -- เช็คค่าจาก Stats
-    if player:FindFirstChild("Stats") then
-        damage = player.Stats:FindFirstChild("Damage") and player.Stats.Damage.Value or "0"
-        wave = player.Stats:FindFirstChild("Wave") and player.Stats.Wave.Value or "0"
-    end
+    -- 🔎 ดึงข้อมูล
+    local level = player:FindFirstChild("Level") and player.Level.Value or "N/A"
+    local coins = player:FindFirstChild("leaderstats") and player.leaderstats:FindFirstChild("Coins") and player.leaderstats.Coins.Value or "0"
+    local gems = player:FindFirstChild("leaderstats") and player.leaderstats:FindFirstChild("Gems") and player.leaderstats.Gems.Value or "0"
 
-    -- เช็ค UI ของเกม
-    if player:FindFirstChild("PlayerGui") then
-        for _, gui in pairs(player.PlayerGui:GetDescendants()) do
-            if gui:IsA("TextLabel") then
-                if gui.Text == "VICTORY" or gui.Text == "DEFEAT" then
-                    result = gui.Text
-                end
-            end
-        end
-    end
-
-    -- เช็ครางวัลจาก Inventory
+    -- 🔎 ตรวจสอบของในกระเป๋า
+    local inventory = {}
     if player:FindFirstChild("Inventory") then
-        rewards = player.Inventory:FindFirstChild("LastReward") and player.Inventory.LastReward.Value or "None"
-    end
-
-    return damage, wave, result, rewards
-end
-
--- 📌 ฟังก์ชันตรวจสอบว่าเกมจบหรือยัง
-local function detectGameState()
-    while wait(2) do
-        if gameEnded then return end  -- ถ้าเกมจบแล้ว ให้หยุดทำงาน
-
-        local player = game.Players.LocalPlayer
-        if not player then return end
-
-        local damage, wave, result, rewards = getGameStats()
-
-        -- ตรวจจับสถานะเกม
-        if (result == "VICTORY" or result == "DEFEAT") and not gameEnded then
-            gameEnded = true  -- ป้องกันการส่งข้อความซ้ำ
-
-            local username = player.Name
-            local level = player:FindFirstChild("Level") and player.Level.Value or "N/A"
-
-            sendWebhookMessage(username, level, damage, wave, result, rewards)
-
-            wait(10)  
+        for _, item in pairs(player.Inventory:GetChildren()) do
+            inventory[item.Name] = item.Value
         end
     end
+
+    -- 🔥 ส่งข้อมูลไปยัง Webhook
+    sendWebhookMessage(player.Name, level, coins, gems, inventory)
 end
 
--- 🔄 เริ่มตรวจสอบ
-spawn(detectGameState)
+-- ⏳ เช็คทุก ๆ 5 วินาที เมื่ออยู่ Lobby
+while wait(5) do
+    checkPlayerStats()
+end
