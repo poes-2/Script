@@ -4,8 +4,7 @@ if not http_request then
     error("❌ Executor ของคุณไม่รองรับ HTTP Requests!")
 end
 
--- ตัวแปรเช็คว่าเคยส่งข้อมูลไปแล้วหรือยัง
-local dataSent = false
+local dataSent = false  -- ป้องกันการส่งซ้ำ
 
 -- 📌 ฟังก์ชันส่งข้อมูลไปยัง Webhook
 local function sendWebhookMessage(username, level, coins, gems, items)
@@ -23,7 +22,7 @@ local function sendWebhookMessage(username, level, coins, gems, items)
                 {["name"] = "🔢 Level", ["value"] = tostring(level), ["inline"] = true},
                 {["name"] = "💰 Coins", ["value"] = tostring(coins), ["inline"] = true},
                 {["name"] = "💎 Gems", ["value"] = tostring(gems), ["inline"] = true},
-                {["name"] = "🎒 Inventory", ["value"] = inventoryList}
+                {["name"] = "🎒 Inventory", ["value"] = inventoryList ~= "" and inventoryList or "ไม่มีไอเทม"}
             }
         }}
     }
@@ -39,29 +38,61 @@ local function sendWebhookMessage(username, level, coins, gems, items)
 
     if success then
         print("✅ ส่งข้อมูลไปยัง Webhook สำเร็จ!")
-        dataSent = true -- ป้องกันการส่งซ้ำ
+        dataSent = true
     else
         warn("❌ ส่งข้อมูลไม่สำเร็จ: " .. tostring(response))
     end
 end
 
--- 📌 ฟังก์ชันดึงข้อมูลจาก Lobby
+-- 📌 ฟังก์ชันตรวจสอบข้อมูลของผู้เล่น
 local function checkPlayerStats()
     local player = game.Players.LocalPlayer
-    if not player then return end
-    if dataSent then return end  -- ถ้าเคยส่งไปแล้วให้หยุด
+    if not player then 
+        print("❌ ไม่พบผู้เล่น")
+        return 
+    end
+    if dataSent then return end  -- ถ้าส่งไปแล้วให้หยุด
 
-    -- 🔎 ดึงข้อมูล
-    local level = player:FindFirstChild("Level") and player.Level.Value or "N/A"
-    local coins = player:FindFirstChild("leaderstats") and player.leaderstats:FindFirstChild("Coins") and player.leaderstats.Coins.Value or "0"
-    local gems = player:FindFirstChild("leaderstats") and player.leaderstats:FindFirstChild("Gems") and player.leaderstats.Gems.Value or "0"
+    print("\n🔎 เริ่มตรวจสอบข้อมูลผู้เล่น...")
 
-    -- 🔎 ตรวจสอบของในกระเป๋า
+    -- 🔍 ตรวจสอบ leaderstats
+    local coins = "0"
+    local gems = "0"
+    if player:FindFirstChild("leaderstats") then
+        print("✅ พบ leaderstats")
+        if player.leaderstats:FindFirstChild("Coins") then
+            coins = player.leaderstats.Coins.Value
+        else
+            print("⚠️ ไม่พบ Coins ใน leaderstats")
+        end
+        if player.leaderstats:FindFirstChild("Gems") then
+            gems = player.leaderstats.Gems.Value
+        else
+            print("⚠️ ไม่พบ Gems ใน leaderstats")
+        end
+    else
+        print("❌ ไม่พบ leaderstats")
+    end
+
+    -- 🔍 ตรวจสอบ Level
+    local level = "N/A"
+    if player:FindFirstChild("Stats") and player.Stats:FindFirstChild("Level") then
+        level = player.Stats.Level.Value
+        print("✅ Level:", level)
+    else
+        print("⚠️ ไม่พบ Level")
+    end
+
+    -- 🔍 ตรวจสอบ Inventory
     local inventory = {}
     if player:FindFirstChild("Inventory") then
+        print("✅ พบ Inventory")
         for _, item in pairs(player.Inventory:GetChildren()) do
             inventory[item.Name] = item.Value
+            print("📦 ไอเทม:", item.Name, "จำนวน:", item.Value)
         end
+    else
+        print("⚠️ ไม่พบ Inventory")
     end
 
     -- 🔥 ส่งข้อมูลไปยัง Webhook
