@@ -4,9 +4,9 @@ if not http_request then
     error("❌ Executor ของคุณไม่รองรับ HTTP Requests!")
 end
 
--- ตัวแปรเก็บสถานะปัจจุบัน
-local lastResult = nil  
-local isProcessing = false 
+-- ตัวแปรเก็บสถานะการเล่น
+local gameActive = true  -- เริ่มเกม: true
+local gameEnded = false  -- เกมจบแล้วหรือยัง
 
 -- 📌 ฟังก์ชันส่งข้อความ Webhook
 function sendWebhookMessage(username, level, matchDMG, wave, result, rewards)
@@ -41,21 +41,29 @@ function sendWebhookMessage(username, level, matchDMG, wave, result, rewards)
     end
 end
 
--- 📌 ตรวจจับว่า "จบด่าน" แล้วส่ง Webhook
-local function checkEndGame()
-    if isProcessing then return end -- ป้องกันการส่งซ้ำ
+-- 📌 ตรวจจับว่าผู้เล่นอยู่ในเกมหรือไม่
+local function detectGameState()
+    while wait(2) do
+        if not gameActive then return end  -- ถ้าเกมจบแล้ว หยุดทำงาน
 
-    local player = game.Players.LocalPlayer
-    if not player then return end
+        local player = game.Players.LocalPlayer
+        if not player then return end
 
-    local screenGui = player:FindFirstChild("PlayerGui")
-    if screenGui then
-        for _, guiObject in pairs(screenGui:GetDescendants()) do
-            if guiObject:IsA("TextLabel") or guiObject:IsA("TextButton") then
-                local text = guiObject.Text:upper()
-                if text == "VICTORY" or text == "DEFEAT" then
-                    if lastResult ~= text then  
-                        isProcessing = true -- ล็อกให้ส่งครั้งเดียว
+        local screenGui = player:FindFirstChild("PlayerGui")
+        if screenGui then
+            for _, guiObject in pairs(screenGui:GetDescendants()) do
+                if guiObject:IsA("TextLabel") or guiObject:IsA("TextButton") then
+                    local text = guiObject.Text:upper()
+
+                    -- 🔍 มองหาปุ่ม "NEXT" แปลว่าเกมยังไม่จบ
+                    if text == "NEXT" then
+                        gameEnded = false
+                        return
+                    end
+
+                    -- 🏆 ตรวจจับ "VICTORY" หรือ "DEFEAT" เมื่อไม่มีปุ่ม "NEXT"
+                    if (text == "VICTORY" or text == "DEFEAT") and not gameEnded then
+                        gameEnded = true  -- ป้องกันการส่งข้อความซ้ำ
 
                         -- 📌 ดึงข้อมูลจากเกมจริงๆ
                         local username = player.Name
@@ -67,9 +75,9 @@ local function checkEndGame()
                         -- 🔥 ส่งข้อมูลไปยัง Webhook
                         sendWebhookMessage(username, level, matchDMG, wave, text, rewards)
 
-                        lastResult = text  -- อัปเดตผลล่าสุด
-                        wait(10) -- Cooldown ป้องกันการส่งซ้ำ
-                        isProcessing = false -- ปลดล็อก
+                        -- หยุดตรวจสอบ
+                        wait(10)  
+                        gameActive = false  
                     end
                 end
             end
@@ -77,7 +85,5 @@ local function checkEndGame()
     end
 end
 
--- 🔄 ตรวจสอบด่านทุกๆ 2 วินาที
-while wait(2) do
-    checkEndGame()
-end
+-- 🔄 เริ่มตรวจสอบ
+spawn(detectGameState)
