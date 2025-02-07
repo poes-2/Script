@@ -8,21 +8,21 @@ local dataSent = false  -- ป้องกันการส่งซ้ำ
 
 -- 📌 ฟังก์ชันส่งข้อมูลไปยัง Webhook
 local function sendWebhookMessage(username, level, coins, gems, items)
-    local inventoryList = ""
+    local itemList = ""
     for itemName, amount in pairs(items) do
-        inventoryList = inventoryList .. "- " .. itemName .. ": " .. tostring(amount) .. "\n"
+        itemList = itemList .. "- " .. itemName .. ": " .. tostring(amount) .. "\n"
     end
 
     local data = {
         ["embeds"] = {{
-            ["title"] = "📦 Player Inventory - Anime Adventures",
+            ["title"] = "📦 Player Items - Anime Adventures",
             ["color"] = 3447003,
             ["fields"] = {
                 {["name"] = "👤 User", ["value"] = username, ["inline"] = true},
                 {["name"] = "🔢 Level", ["value"] = tostring(level), ["inline"] = true},
                 {["name"] = "💰 Coins", ["value"] = tostring(coins), ["inline"] = true},
                 {["name"] = "💎 Gems", ["value"] = tostring(gems), ["inline"] = true},
-                {["name"] = "🎒 Inventory", ["value"] = inventoryList ~= "" and inventoryList or "ไม่มีไอเทม"}
+                {["name"] = "🎒 Items", ["value"] = itemList ~= "" and itemList or "ไม่มีไอเทม"}
             }
         }}
     }
@@ -83,20 +83,20 @@ local function checkPlayerStats()
         print("⚠️ ไม่พบ Level")
     end
 
-    -- 🔍 ตรวจสอบ Inventory
-    local inventory = {}
-    if player:FindFirstChild("Inventory") then
-        print("✅ พบ Inventory")
-        for _, item in pairs(player.Inventory:GetChildren()) do
-            inventory[item.Name] = item.Value
+    -- 🔍 ตรวจสอบ Items
+    local items = {}
+    if player:FindFirstChild("Items") then
+        print("✅ พบ Items")
+        for _, item in pairs(player.Items:GetChildren()) do
+            items[item.Name] = item.Value
             print("📦 ไอเทม:", item.Name, "จำนวน:", item.Value)
         end
     else
-        print("⚠️ ไม่พบ Inventory")
+        print("⚠️ ไม่พบ Items")
     end
 
     -- 🔥 ส่งข้อมูลไปยัง Webhook
-    sendWebhookMessage(player.Name, level, coins, gems, inventory)
+    sendWebhookMessage(player.Name, level, coins, gems, items)
 end
 
 -- ⏳ เช็คทุก ๆ 5 วินาที เมื่ออยู่ Lobby
