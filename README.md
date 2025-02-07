@@ -41,7 +41,59 @@ function sendWebhookMessage(username, level, matchDMG, wave, result, rewards)
     end
 end
 
+local player = game.Players.LocalPlayer
+
+print("🔎 ตรวจสอบ Children ของ Player:")
+for _, child in pairs(player:GetChildren()) do
+    print(child.Name, child.ClassName)
+end
+
+if player:FindFirstChild("leaderstats") then
+    print("\n📊 leaderstats พบข้อมูล:")
+    for _, stat in pairs(player.leaderstats:GetChildren()) do
+        print(stat.Name, stat.ClassName, stat.Value)
+    end
+end
+
+if player:FindFirstChild("Stats") then
+    print("\n⚔️ Stats พบข้อมูล:")
+    for _, stat in pairs(player.Stats:GetChildren()) do
+        print(stat.Name, stat.ClassName, stat.Value)
+    end
+end
+
+if player:FindFirstChild("PlayerGui") then
+    print("\n📺 ตรวจสอบ UI:")
+    for _, gui in pairs(player.PlayerGui:GetDescendants()) do
+        if gui:IsA("TextLabel") then
+            print("🔤 UI TextLabel:", gui.Text)
+        end
+    end
+end
+
+
 -- 📌 ตรวจจับว่าผู้เล่นอยู่ในเกมหรือไม่
+local function getGameStats()
+    local player = game.Players.LocalPlayer
+    local damage, wave, result, rewards = "0", "0", "UNKNOWN", "None"
+
+    if player:FindFirstChild("PlayerGui") then
+        for _, gui in pairs(player.PlayerGui:GetDescendants()) do
+            if gui:IsA("TextLabel") then
+                if string.find(gui.Text, "Damage:") then
+                    damage = string.match(gui.Text, "%d+")
+                elseif string.find(gui.Text, "Wave:") then
+                    wave = string.match(gui.Text, "%d+")
+                elseif gui.Text == "VICTORY" or gui.Text == "DEFEAT" then
+                    result = gui.Text
+                end
+            end
+        end
+    end
+
+    return damage, wave, result, rewards
+end
+
 local function detectGameState()
     while wait(2) do
         if not gameActive then return end  -- ถ้าเกมจบแล้ว หยุดทำงาน
@@ -49,25 +101,23 @@ local function detectGameState()
         local player = game.Players.LocalPlayer
         if not player then return end
 
-        local screenGui = player:FindFirstChild("PlayerGui")
-        if screenGui then
-            for _, guiObject in pairs(screenGui:GetDescendants()) do
-                if guiObject:IsA("TextLabel") or guiObject:IsA("TextButton") then
-                    local text = guiObject.Text:upper()
+        local damage, wave, result, rewards = getGameStats()
 
-                    -- 🔍 ตรวจสอบปุ่ม "NEXT" แต่ถ้าพบมากกว่า 3 ครั้ง ให้ยืนยันว่าเกมยังไม่จบ
-                    if text == "NEXT" then
-                        local nextCount = 0
-                        while wait(1) do
-                            if guiObject.Text:upper() == "NEXT" then
-                                nextCount = nextCount + 1
-                            end
-                            if nextCount > 3 then
-                                gameEnded = false
-                                return
-                            end
-                        end
-                    end
+        if (result == "VICTORY" or result == "DEFEAT") and not gameEnded then
+            gameEnded = true  -- ป้องกันการส่งข้อความซ้ำ
+
+            local username = player.Name
+            local level = player:FindFirstChild("Level") and player.Level.Value or "N/A"
+
+            sendWebhookMessage(username, level, damage, wave, result, rewards)
+
+            wait(10)  
+            gameActive = false  
+        end
+    end
+end
+
+
 
                     -- 🏆 ตรวจจับ "VICTORY" หรือ "DEFEAT" เท่านั้น
                     if (text == "VICTORY" or text == "DEFEAT") and not gameEnded then
