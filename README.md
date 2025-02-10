@@ -1,7 +1,7 @@
 local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 
--- Webhook URL ของคุณ
+-- ใส่ Webhook URL ของคุณ
 local webhookUrl = "https://discord.com/api/webhooks/1336650358130343989/SnQRVJtPPbHaig37At3lDMbR5xf5kheipbnG6rrjhM95QZgFkJ5YJJTLlmckEC_zLjuA"
 
 -- ฟังก์ชันส่ง Webhook
@@ -29,34 +29,40 @@ local function sendWebhook(player, itemName)
     end
 end
 
--- ตรวจจับ UI และดึงชื่อไอเทม
-local function onItemReceived(player, gui)
-    local itemTextLabel = gui:FindFirstChild("ItemNameLabel") -- เปลี่ยนเป็นชื่อจริงของ TextLabel ใน UI
-
-    if itemTextLabel and itemTextLabel:IsA("TextLabel") then
-        local itemName = itemTextLabel.Text
-        print(player.Name .. " ได้รับไอเทม: " .. itemName)
-
-        -- ส่ง Webhook เมื่อพบชื่อไอเทม
-        sendWebhook(player, itemName)
+-- ตรวจจับ UI และอ่านชื่อไอเทม
+local function onRewardScreenOpened(player)
+    local playerGui = player:WaitForChild("PlayerGui", 10) -- รอให้ PlayerGui โหลด (สูงสุด 10 วินาที)
+    if not playerGui then
+        warn("⚠️ ไม่พบ PlayerGui สำหรับ " .. player.Name)
+        return
     end
+
+    local rewardUI = playerGui:WaitForChild("RewardScreen", 10) -- เปลี่ยนเป็นชื่อ UI จริงของคุณ
+    if not rewardUI then
+        warn("⚠️ ไม่พบ RewardScreen สำหรับ " .. player.Name)
+        return
+    end
+
+    local itemTextLabel = rewardUI:WaitForChild("ItemNameLabel", 10) -- เปลี่ยนเป็นชื่อ TextLabel จริงของคุณ
+    if not itemTextLabel then
+        warn("⚠️ ไม่พบ ItemNameLabel สำหรับ " .. player.Name)
+        return
+    end
+
+    -- เมื่อ TextLabel เปลี่ยนค่า ให้ส่ง Webhook
+    itemTextLabel:GetPropertyChangedSignal("Text"):Connect(function()
+        local itemName = itemTextLabel.Text
+        if itemName and itemName ~= "" then
+            print("📢 " .. player.Name .. " ได้รับไอเทม: " .. itemName)
+            sendWebhook(player, itemName)
+        end
+    end)
 end
 
--- เชื่อมโยงกับ UI เมื่อผู้เล่นเข้าเกม
+-- ผูกฟังก์ชันกับการเข้าของผู้เล่น
 Players.PlayerAdded:Connect(function(player)
-    player.CharacterAdded:Connect(function(character)
-        wait(5)  -- รอให้ UI โหลด
-
-        local playerGui = player:FindFirstChild("PlayerGui")
-        if playerGui then
-            local rewardUI = playerGui:FindFirstChild("RewardScreen")  -- เปลี่ยนเป็นชื่อจริงของ UI
-            if rewardUI then
-                rewardUI:GetPropertyChangedSignal("Enabled"):Connect(function()
-                    if rewardUI.Enabled then
-                        onItemReceived(player, rewardUI)
-                    end
-                end)
-            end
-        end
+    player.CharacterAdded:Connect(function()
+        wait(5) -- รอโหลดตัวละคร
+        onRewardScreenOpened(player)
     end)
 end)
