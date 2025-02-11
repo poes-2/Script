@@ -1,68 +1,75 @@
 local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 
--- ใส่ Webhook URL ของคุณ
-local webhookUrl = "https://discord.com/api/webhooks/1336650358130343989/SnQRVJtPPbHaig37At3lDMbR5xf5kheipbnG6rrjhM95QZgFkJ5YJJTLlmckEC_zLjuA"
+local WEBHOOK_URL = "https://discord.com/api/webhooks/1336650358130343989/SnQRVJtPPbHaig37At3lDMbR5xf5kheipbnG6rrjhM95QZgFkJ5YJJTLlmckEC_zLjuA"  -- ใส่ Webhook URL
 
--- ฟังก์ชันส่ง Webhook
-local function sendWebhook(player, itemName)
-    local data = {
-        username = "Roblox Webhook",
-        embeds = {
-            {
-                title = player.Name .. " ได้รับไอเทม!",
-                description = "🎁 ไอเทมที่ได้รับ: **" .. itemName .. "**",
-                color = 65280  -- สีเขียว
-            }
-        }
+-- ฟังก์ชันส่งข้อมูลไปยัง Discord Webhook
+local function sendToDiscord(player, taskData)
+    local embed = {
+        ["title"] = "📩 ส่งานฟาม",
+        ["color"] = 65280,  -- สีเขียว
+        ["fields"] = {
+            {["name"] = "👤 จ้างโดย", ["value"] = "<@"..taskData.userId..">", ["inline"] = false},
+            {["name"] = "🎯 รายการฟาม", ["value"] = taskData.listFarm, ["inline"] = false},
+            {["name"] = "💰 จำนวนเหรียญ", ["value"] = taskData.coinAmount, ["inline"] = false},
+            {["name"] = "🎲 Death Dice", ["value"] = taskData.deathDice, ["inline"] = false}
+        },
+        ["footer"] = {["text"] = "ส่งโดย " .. player.Name}
     }
-    
-    local jsonData = HttpService:JSONEncode(data)
-    local success, response = pcall(function()
-        return HttpService:PostAsync(webhookUrl, jsonData, Enum.HttpContentType.ApplicationJson)
+
+    local payload = {
+        ["content"] = "<@"..taskData.userId..">",
+        ["embeds"] = {embed}
+    }
+
+    local jsonData = HttpService:JSONEncode(payload)
+
+    -- ส่งข้อมูลไปยัง Webhook
+    local success, err = pcall(function()
+        HttpService:PostAsync(WEBHOOK_URL, jsonData, Enum.HttpContentType.ApplicationJson)
     end)
 
-    if success then
-        print("✅ ส่ง Webhook สำเร็จ: " .. response)
-    else
-        warn("❌ ส่ง Webhook ล้มเหลว: " .. tostring(response))
+    if not success then
+        warn("❌ ไม่สามารถส่งข้อมูลไปยัง Discord:", err)
     end
 end
 
--- ตรวจจับ UI และอ่านชื่อไอเทม
-local function onRewardScreenOpened(player)
-    local playerGui = player:WaitForChild("PlayerGui", 10) -- รอให้ PlayerGui โหลด (สูงสุด 10 วินาที)
-    if not playerGui then
-        warn("⚠️ ไม่พบ PlayerGui สำหรับ " .. player.Name)
-        return
-    end
+-- UI สำหรับให้ผู้ใช้ป้อนข้อมูล (ตัวอย่าง)
+local function createTaskForm(player)
+    local playerGui = player:FindFirstChild("PlayerGui")
+    if not playerGui then return end
 
-    local rewardUI = playerGui:WaitForChild("RewardScreen", 10) -- เปลี่ยนเป็นชื่อ UI จริงของคุณ
-    if not rewardUI then
-        warn("⚠️ ไม่พบ RewardScreen สำหรับ " .. player.Name)
-        return
-    end
+    local screenGui = Instance.new("ScreenGui", playerGui)
+    local frame = Instance.new("Frame", screenGui)
+    frame.Size = UDim2.new(0, 300, 0, 200)
+    frame.Position = UDim2.new(0.5, -150, 0.5, -100)
 
-    local itemTextLabel = rewardUI:WaitForChild("ItemNameLabel", 10) -- เปลี่ยนเป็นชื่อ TextLabel จริงของคุณ
-    if not itemTextLabel then
-        warn("⚠️ ไม่พบ ItemNameLabel สำหรับ " .. player.Name)
-        return
-    end
+    local textBox = Instance.new("TextBox", frame)
+    textBox.PlaceholderText = "พิมพ์ไอเทมหรือข้อมูลฟาม..."
+    textBox.Size = UDim2.new(1, -10, 0, 30)
+    textBox.Position = UDim2.new(0, 5, 0, 5)
 
-    -- เมื่อ TextLabel เปลี่ยนค่า ให้ส่ง Webhook
-    itemTextLabel:GetPropertyChangedSignal("Text"):Connect(function()
-        local itemName = itemTextLabel.Text
-        if itemName and itemName ~= "" then
-            print("📢 " .. player.Name .. " ได้รับไอเทม: " .. itemName)
-            sendWebhook(player, itemName)
+    local submitButton = Instance.new("TextButton", frame)
+    submitButton.Text = "ส่งข้อมูล"
+    submitButton.Size = UDim2.new(1, -10, 0, 30)
+    submitButton.Position = UDim2.new(0, 5, 0, 40)
+
+    submitButton.MouseButton1Click:Connect(function()
+        local taskData = {
+            userId = player.UserId,
+            listFarm = textBox.Text,
+            coinAmount = "100",
+            deathDice = "2"
+        }
+        sendToDiscord(player, taskData)
+    end)
+end
+
+-- คำสั่งเปิด UI
+game.Players.PlayerAdded:Connect(function(player)
+    player.Chatted:Connect(function(message)
+        if message == "!ส่งงาน" then
+            createTaskForm(player)
         end
-    end)
-end
-
--- ผูกฟังก์ชันกับการเข้าของผู้เล่น
-Players.PlayerAdded:Connect(function(player)
-    player.CharacterAdded:Connect(function()
-        wait(5) -- รอโหลดตัวละคร
-        onRewardScreenOpened(player)
     end)
 end)
