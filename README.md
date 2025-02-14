@@ -1,75 +1,49 @@
-local HttpService = game:GetService("HttpService")
-local Players = game:GetService("Players")
+-- ประกาศตัวแปร
+local screenGui = Instance.new("ScreenGui", game.Players.LocalPlayer.PlayerGui)
+local frame = Instance.new("Frame", screenGui)
+local startButton = Instance.new("TextButton", screenGui)
+local stopButton = Instance.new("TextButton", screenGui)
+local running = false
 
-local WEBHOOK_URL = "https://discord.com/api/webhooks/1336650358130343989/SnQRVJtPPbHaig37At3lDMbR5xf5kheipbnG6rrjhM95QZgFkJ5YJJTLlmckEC_zLjuA"  -- ใส่ Webhook URL
+-- ตั้งค่ากรอบสี่เหลี่ยมสีแดง
+frame.Size = UDim2.new(0, 550, 0, 550) -- ขนาด 550x550 พิกเซล
+frame.Position = UDim2.new(0.5, -275, 0.5, -275) -- จัดตำแหน่งตรงกลาง
+frame.BackgroundColor3 = Color3.new(1, 0, 0) -- สีแดง
+frame.BorderSizePixel = 0
 
--- ฟังก์ชันส่งข้อมูลไปยัง Discord Webhook
-local function sendToDiscord(player, taskData)
-    local embed = {
-        ["title"] = "📩 ส่งานฟาม",
-        ["color"] = 65280,  -- สีเขียว
-        ["fields"] = {
-            {["name"] = "👤 จ้างโดย", ["value"] = "<@"..taskData.userId..">", ["inline"] = false},
-            {["name"] = "🎯 รายการฟาม", ["value"] = taskData.listFarm, ["inline"] = false},
-            {["name"] = "💰 จำนวนเหรียญ", ["value"] = taskData.coinAmount, ["inline"] = false},
-            {["name"] = "🎲 Death Dice", ["value"] = taskData.deathDice, ["inline"] = false}
-        },
-        ["footer"] = {["text"] = "ส่งโดย " .. player.Name}
-    }
+-- ตั้งค่าปุ่มเริ่มต้น
+startButton.Size = UDim2.new(0, 100, 0, 50)
+startButton.Position = UDim2.new(0, 10, 0, 10)
+startButton.Text = "Start"
+startButton.BackgroundColor3 = Color3.new(0, 1, 0) -- สีเขียว
 
-    local payload = {
-        ["content"] = "<@"..taskData.userId..">",
-        ["embeds"] = {embed}
-    }
+-- ตั้งค่าปุ่มหยุด
+stopButton.Size = UDim2.new(0, 100, 0, 50)
+stopButton.Position = UDim2.new(0, 120, 0, 10)
+stopButton.Text = "Stop"
+stopButton.BackgroundColor3 = Color3.new(1, 0, 0) -- สีแดง
 
-    local jsonData = HttpService:JSONEncode(payload)
-
-    -- ส่งข้อมูลไปยัง Webhook
-    local success, err = pcall(function()
-        HttpService:PostAsync(WEBHOOK_URL, jsonData, Enum.HttpContentType.ApplicationJson)
-    end)
-
-    if not success then
-        warn("❌ ไม่สามารถส่งข้อมูลไปยัง Discord:", err)
+-- ฟังก์ชันตรวจจับและคลิก
+local function clickObjects()
+    while running do
+        -- ตรวจสอบวัตถุที่อยู่ในกรอบ
+        for _, obj in pairs(game.Workspace:GetDescendants()) do
+            if obj:IsA("BasePart") and obj.Position.X >= frame.AbsolutePosition.X and obj.Position.X <= frame.AbsolutePosition.X + frame.AbsoluteSize.X and obj.Position.Y >= frame.AbsolutePosition.Y and obj.Position.Y <= frame.AbsolutePosition.Y + frame.AbsoluteSize.Y then
+                -- คลิกวัตถุ
+                obj:Destroy() -- หรือทำการกระทำอื่นๆ ตามต้องการ
+            end
+        end
+        wait(0.1) -- รอ 0.1 วินาทีก่อนตรวจสอบอีกครั้ง
     end
 end
 
--- UI สำหรับให้ผู้ใช้ป้อนข้อมูล (ตัวอย่าง)
-local function createTaskForm(player)
-    local playerGui = player:FindFirstChild("PlayerGui")
-    if not playerGui then return end
+-- ปุ่มเริ่มต้น
+startButton.MouseButton1Click:Connect(function()
+    running = true
+    clickObjects()
+end)
 
-    local screenGui = Instance.new("ScreenGui", playerGui)
-    local frame = Instance.new("Frame", screenGui)
-    frame.Size = UDim2.new(0, 300, 0, 200)
-    frame.Position = UDim2.new(0.5, -150, 0.5, -100)
-
-    local textBox = Instance.new("TextBox", frame)
-    textBox.PlaceholderText = "พิมพ์ไอเทมหรือข้อมูลฟาม..."
-    textBox.Size = UDim2.new(1, -10, 0, 30)
-    textBox.Position = UDim2.new(0, 5, 0, 5)
-
-    local submitButton = Instance.new("TextButton", frame)
-    submitButton.Text = "ส่งข้อมูล"
-    submitButton.Size = UDim2.new(1, -10, 0, 30)
-    submitButton.Position = UDim2.new(0, 5, 0, 40)
-
-    submitButton.MouseButton1Click:Connect(function()
-        local taskData = {
-            userId = player.UserId,
-            listFarm = textBox.Text,
-            coinAmount = "100",
-            deathDice = "2"
-        }
-        sendToDiscord(player, taskData)
-    end)
-end
-
--- คำสั่งเปิด UI
-game.Players.PlayerAdded:Connect(function(player)
-    player.Chatted:Connect(function(message)
-        if message == "!ส่งงาน" then
-            createTaskForm(player)
-        end
-    end)
+-- ปุ่มหยุด
+stopButton.MouseButton1Click:Connect(function()
+    running = false
 end)
