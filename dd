@@ -1,5 +1,4 @@
 
-
 local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
 local SaveManager = loadstring(game:HttpGet(
     "https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/SaveManager.lua"))()
@@ -242,8 +241,8 @@ local function TweenTp(target)
     local root = GetMyRoot()
     if root then
         local targetCf = (typeof(target) == "Vector3") and CFrame.new(target) or target
-        local speed = 150 
-        local stepMax = 300 -- ระยะสูงสุดต่อการ Tween 1 ครั้งตามที่ผู้ใช้ต้องการ
+        local speed = 190 
+        local stepMax = 350 -- ระยะสูงสุดต่อการ Tween 1 ครั้งตามที่ผู้ใช้ต้องการ
 
         root.Anchored = true 
         
@@ -255,6 +254,9 @@ local function TweenTp(target)
             tween:Play()
             tween.Completed:Wait()
         end
+
+        -- บินขึ้นไปด้านบนก่อน 30 หน่วย
+        doTween(root.CFrame * CFrame.new(0, 30, 0))
 
         local currentPos = root.Position
         local fullDistance = (targetCf.Position - currentPos).Magnitude
@@ -271,9 +273,8 @@ local function TweenTp(target)
                 -- ใช้ Rotation ของเป้าหมายเพื่อให้หันหน้าไปทางที่ถูกต้องเมื่อถึง
                 doTween(CFrame.new(nextPos) * targetCf.Rotation)
                 root.Anchored = false
-                task.wait(0.5) -- หยุด 1 วินาทีหลังจากจบแต่ละช่วง
+                task.wait(0.2) -- หยุดหลังจากจบแต่ละช่วง
                 root.Anchored = true
-
             end
             
             -- Tween ส่วนที่เหลือ (ถ้ามี)
@@ -390,10 +391,22 @@ end
         Content = "Control your automated harvesting and selling here."
     })
     
-  
+   
+
+
     local SkillDropdown = Tabs.Main:AddDropdown("SkillDropdown", {
         Title = "Select Npc",
-        Values = {"Ysa","Boots","Tivek","Aberon","Geron","Lagolt","Doran"}, --  ใส้ชื่อ NPC ตามชื่อตัวละครแล้วกด tp
+        Values = {
+            "Aberon", "Adelma", "Aderyn", "Apothecarian", "Arandor", "Aretim", "Asskerlot", "Atalar", "Banker", 
+            "Barber", "Blacksmith", "Bone Man", "Boots", "Cantia", "Clerk", "DarkPlaceGate", "Dernon", "Diiz", 
+            "Doctor", "Doran", "Dusk", "Dusk E", "Field Doctor", "Geron", "Gren", "Itinerant", "Joe", "Kayrein", 
+            "Kether", "KingSlimeStatue", "Lagolt", "Landrum", "Leoran", "LightPlaceGate", "Lorra", "Luther", 
+            "Mael", "Merchant", "Momma Darkbeast", "Nevithas", "Ophelia", "Pistachio", "Prelate Fyran", "Pup 1", 
+            "Pup 2", "Pup 3", "PurgNPC", "Relan", "Ryzar Infelio", "Selia", "Seraphon", "SlimeStatue1", 
+            "SlimeStatue2", "SlimeStatue3", "SlimeStatue4", "Tae’el", "Tarmon", "Tendra", "Thanasius", 
+            "ThanasiusMirror", "The Soulmaster", "Therapist", "Thorin", "Thuriaz", "Tivek", "Vanio", 
+            "WestwoodCiv1", "WestwoodCiv2", "WestwoodCiv3", "WestwoodCiv4", "WestwoodCiv5", "WestwoodCiv6", "Ysa"
+        },
         Multi = false,
         Default = "Ysa",
     })
