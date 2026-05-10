@@ -1,0 +1,803 @@
+
+local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
+
+
+local httpService = game:GetService("HttpService")
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+
+local SaveManager = {} do
+    SaveManager.Folder = "FluentSettings"
+    SaveManager.Ignore = {}
+    
+
+    local ConfigName = player.Name
+
+    SaveManager.Parser = {
+        Toggle = {
+            Save = function(idx, object) return { type = "Toggle", idx = idx, value = object.Value } end,
+            Load = function(idx, data) if SaveManager.Options[idx] then SaveManager.Options[idx]:SetValue(data.value) end end,
+        },
+        Slider = {
+            Save = function(idx, object) return { type = "Slider", idx = idx, value = tostring(object.Value) } end,
+            Load = function(idx, data) if SaveManager.Options[idx] then SaveManager.Options[idx]:SetValue(data.value) end end,
+        },
+        Dropdown = {
+            Save = function(idx, object) return { type = "Dropdown", idx = idx, value = object.Value, mutli = object.Multi } end,
+            Load = function(idx, data) if SaveManager.Options[idx] then SaveManager.Options[idx]:SetValue(data.value) end end,
+        },
+        Colorpicker = {
+            Save = function(idx, object) return { type = "Colorpicker", idx = idx, value = object.Value:ToHex(), transparency = object.Transparency } end,
+            Load = function(idx, data) if SaveManager.Options[idx] then SaveManager.Options[idx]:SetValueRGB(Color3.fromHex(data.value), data.transparency) end end,
+        },
+        Keybind = {
+            Save = function(idx, object) return { type = "Keybind", idx = idx, mode = object.Mode, key = object.Value } end,
+            Load = function(idx, data) if SaveManager.Options[idx] then SaveManager.Options[idx]:SetValue(data.key, data.mode) end end,
+        },
+        Input = {
+            Save = function(idx, object) return { type = "Input", idx = idx, text = object.Value } end,
+            Load = function(idx, data) if SaveManager.Options[idx] and type(data.text) == "string" then SaveManager.Options[idx]:SetValue(data.text) end end,
+        },
+    }
+
+    function SaveManager:SetIgnoreIndexes(list)
+        for _, key in next, list do self.Ignore[key] = true end
+    end
+
+    function SaveManager:SetFolder(folder)
+        self.Folder = folder
+        self:BuildFolderTree()
+    end
+
+   
+    function SaveManager:AutoSave()
+        return self:Save(ConfigName)
+    end
+
+    function SaveManager:Save(name)
+        if (not name) then return false, "no config file is selected" end
+        local fullPath = self.Folder .. "/settings/" .. name .. ".json"
+
+        local data = { objects = {} }
+        for idx, option in next, SaveManager.Options do
+            if not self.Parser[option.Type] then continue end
+            if self.Ignore[idx] then continue end
+            table.insert(data.objects, self.Parser[option.Type].Save(idx, option))
+        end	
+
+        local success, encoded = pcall(httpService.JSONEncode, httpService, data)
+        if not success then return false, "failed to encode data" end
+
+        writefile(fullPath, encoded)
+        return true
+    end
+
+    function SaveManager:Load(name)
+        name = name or ConfigName 
+        local file = self.Folder .. "/settings/" .. name .. ".json"
+        if not isfile(file) then return false, "invalid file" end
+
+        local success, decoded = pcall(httpService.JSONDecode, httpService, readfile(file))
+        if not success then return false, "decode error" end
+
+        for _, option in next, decoded.objects do
+            if self.Parser[option.type] then
+                task.spawn(function() self.Parser[option.type].Load(option.idx, option) end)
+            end
+        end
+        return true
+    end
+
+    function SaveManager:BuildFolderTree()
+        local paths = { self.Folder, self.Folder .. "/settings" }
+        for i = 1, #paths do
+            if not isfolder(paths[i]) then makefolder(paths[i]) end
+        end
+    end
+
+    function SaveManager:SetLibrary(library)
+        self.Library = library
+        self.Options = library.Options
+    end
+
+    function SaveManager:LoadUserConfig()
+        local success, err = self:Load(ConfigName)
+        if success then
+            self.Library:Notify({
+                Title = "Interface",
+                Content = "Auto Loader",
+                SubContent = "Loaded settings for " .. ConfigName,
+                Duration = 5
+            })
+        end
+    end
+
+   
+    function SaveManager:InitializeAutoSave(interval)
+        task.spawn(function()
+            while task.wait(interval or 30) do
+                self:AutoSave()
+            end
+        end)
+    end
+
+    SaveManager:BuildFolderTree()
+end
+
+local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/InterfaceManager.lua"))()
+
+local function getProfileThumbnail()
+    local success, content = pcall(function()
+        local userId = player.UserId
+        local thumbType = Enum.ThumbnailType.HeadShot
+        local thumbSize = Enum.ThumbnailSize.Size100x100
+        return game:GetService("Players"):GetUserThumbnailAsync(userId, thumbType, thumbSize)
+    end)
+    return success and content or "rbxassetid://0"
+end
+
+local function isInside(indicator, target)
+    if not indicator or not target then return false end
+    local iPos = indicator.AbsolutePosition + (indicator.AbsoluteSize / 2)
+    local tPos = target.AbsolutePosition
+    local tSize = target.AbsoluteSize
+    
+    return iPos.X >= tPos.X and iPos.X <= (tPos.X + tSize.X) and
+           iPos.Y >= tPos.Y and iPos.Y <= (tPos.Y + tSize.Y)
+end
+
+local Window = Fluent:CreateWindow({
+    Title = "stand",
+    SubTitle = "by anucha 🍋  ",
+    TabWidth = 160,
+    Size = UDim2.fromOffset(580, 460),
+    Acrylic = true,
+    Theme = "Dark",
+    MinimizeKey = Enum.KeyCode.LeftControl
+})
+
+-- Custom UI for Profile and Toggle
+local function setupCustomUI(window)
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "GardenHorizoneCustomUI"
+    screenGui.DisplayOrder = 999
+    
+    local parent = (gethui and gethui()) or game:GetService("CoreGui") or player:WaitForChild("PlayerGui")
+    screenGui.Parent = parent
+
+    -- Toggle Button
+    local toggleButton = Instance.new("ImageButton")
+    toggleButton.Name = "MenuToggle"
+    toggleButton.Parent = screenGui
+    toggleButton.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    toggleButton.BorderSizePixel = 0
+    toggleButton.Position = UDim2.new(0, 15, 0.2, 0) -- Slightly higher
+    toggleButton.Size = UDim2.new(0, 50, 0, 50)
+    toggleButton.Image = "rbxassetid://81617068776053" -- List/Menu icon
+    toggleButton.ImageColor3 = Color3.fromRGB(255, 255, 255)
+    
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 10)
+    corner.Parent = toggleButton
+
+    local stroke = Instance.new("UIStroke")
+    stroke.Thickness = 2
+    stroke.Color = Color3.fromRGB(60, 60, 60)
+    stroke.Parent = toggleButton
+
+    toggleButton.MouseButton1Click:Connect(function()
+        if window then
+            window:Minimize()
+        end
+    end)
+
+    -- Profile Section (Robust Discovery)
+    task.spawn(function()
+        local sidebar
+        local start = tick()
+        
+        -- Enhanced search for sidebar
+        while not sidebar and tick() - start < 15 do
+            if window and window.Root then
+                -- Try finding by common name or class
+                sidebar = window.Root:FindFirstChild("Sidebar", true) 
+                
+                if not sidebar then
+                    -- Fallback: Look for any ScrollingFrame that might be the sidebar
+                    for _, v in pairs(window.Root:GetDescendants()) do
+                        if v:IsA("ScrollingFrame") and v.Name == "Sidebar" then
+                            sidebar = v
+                            break
+                        end
+                    end
+                end
+            end
+            if not sidebar then task.wait(0.5) end
+        end
+
+        if sidebar then
+            if sidebar:FindFirstChild("UserProfile") then return end
+
+            local profileFrame = Instance.new("Frame")
+            profileFrame.Name = "UserProfile"
+            profileFrame.Parent = sidebar
+            profileFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+            profileFrame.BackgroundTransparency = 0.1
+            profileFrame.BorderSizePixel = 0
+            -- Position it at the bottom of the sidebar
+            profileFrame.Position = UDim2.new(0, 10, 1, -70)
+            profileFrame.Size = UDim2.new(1, -20, 0, 60)
+            profileFrame.ZIndex = 500
+            
+            local pCorner = Instance.new("UICorner")
+            pCorner.CornerRadius = UDim.new(0, 12)
+            pCorner.Parent = profileFrame
+
+            local pStroke = Instance.new("UIStroke")
+            pStroke.Thickness = 1
+            pStroke.Color = Color3.fromRGB(100, 100, 100)
+            pStroke.Parent = profileFrame
+
+            local profileImage = Instance.new("ImageLabel")
+            profileImage.Name = "Avatar"
+            profileImage.Parent = profileFrame
+            profileImage.BackgroundTransparency = 1
+            profileImage.Position = UDim2.new(0, 10, 0, 10)
+            profileImage.Size = UDim2.new(0, 40, 0, 40)
+            profileImage.Image = getProfileThumbnail()
+            profileImage.ZIndex = 501
+            
+            local iCorner = Instance.new("UICorner")
+            iCorner.CornerRadius = UDim.new(1, 0)
+            iCorner.Parent = profileImage
+
+            local profileName = Instance.new("TextLabel")
+            profileName.Name = "UsernameLabel"
+            profileName.Parent = profileFrame
+            profileName.BackgroundTransparency = 1
+            profileName.Position = UDim2.new(0, 60, 0, 0)
+            profileName.Size = UDim2.new(1, -65, 1, 0)
+            profileName.Font = Enum.Font.GothamBold
+            profileName.Text = player.DisplayName or player.Name
+            profileName.TextColor3 = Color3.fromRGB(255, 255, 255)
+            profileName.TextSize = 13
+            profileName.TextXAlignment = Enum.TextXAlignment.Left
+            profileName.TextTruncate = Enum.TextTruncate.AtEnd
+            profileName.ZIndex = 501
+        end
+    end)
+end
+_G.Aura = false
+_G.autostand = false
+_G.autoattr = false
+_G.autore = false
+setupCustomUI(Window)
+
+local Tabs = {
+    Main = Window:AddTab({ Title = "Main", Icon = "home" }),
+Farm = Window:AddTab({ Title = "farm", Icon = "swords" }),
+    Settings = Window:AddTab({ Title = "Settings", Icon = "settings" })
+}
+
+local Options = Fluent.Options
+local function modifigui(prints)
+    local playerGui = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
+    local gui = playerGui:FindFirstChild("AutoScrollConsole") or Instance.new("ScreenGui")
+
+    if not gui.Parent then
+        gui.Name = "AutoScrollConsole"
+        gui.ResetOnSpawn = false
+        gui.Parent = playerGui
+    end
+
+    local label = gui:FindFirstChild("MainLabel") or Instance.new("TextLabel")
+    if not label.Parent then
+        label.Name = "MainLabel"
+        label.Size = UDim2.new(0, 500, 0, 50)
+        label.Position = UDim2.new(0.5, 0, 0.05, 0)    -- ขยับขึ้นด้านบน
+        label.AnchorPoint = Vector2.new(0.5, 0)
+        label.BackgroundTransparency = 1               -- ลบพื้นหลัง
+        label.TextColor3 = Color3.fromRGB(0, 170, 255) -- สีฟ้า
+        label.TextSize = 25
+        label.Font = Enum.Font.FredokaOne
+        label.Parent = gui
+
+        -- เพิ่มขอบน้ำเงินให้กับตัวหนังสือ
+        local stroke = Instance.new("UIStroke")
+        stroke.Name = "TextStroke"
+        stroke.Thickness = 2
+        stroke.Color = Color3.fromRGB(0, 0, 128) -- สีน้ำเงินเข้ม
+        stroke.Parent = label
+    end
+
+    label.Text = prints
+end
+local function modifigui2(prints)
+    local playerGui = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
+    local gui = playerGui:FindFirstChild("AutoScrollConsole") or Instance.new("ScreenGui")
+
+    if not gui.Parent then
+        gui.Name = "AutoScrollConsole"
+        gui.ResetOnSpawn = false
+        gui.Parent = playerGui
+    end
+
+    local label = gui:FindFirstChild("MainLabel2") or Instance.new("TextLabel")
+    if not label.Parent then
+        label.Name = "MainLabel2"
+        label.Size = UDim2.new(0, 500, 0, 50)
+        label.Position = UDim2.new(0.5, 0, 0.4, 0)     -- ตำแหน่งกลางจอ
+        label.AnchorPoint = Vector2.new(0.5, 0)
+        label.BackgroundTransparency = 1               -- ลบพื้นหลัง
+        label.TextColor3 = Color3.fromRGB(0, 170, 255) -- สีฟ้า
+        label.TextSize = 25
+        label.Font = Enum.Font.FredokaOne
+        label.Parent = gui
+
+        -- เพิ่มขอบน้ำเงินให้กับตัวหนังสือ
+        local stroke = Instance.new("UIStroke")
+        stroke.Name = "TextStroke"
+        stroke.Thickness = 2
+        stroke.Color = Color3.fromRGB(0, 0, 128) -- สีน้ำเงินเข้ม
+        stroke.Parent = label
+    end
+
+    label.Text = prints
+end
+local VIM = game:GetService("VirtualInputManager")
+
+local function GetMyRoot()
+    local char = player.Character
+    return char and char:FindFirstChild("HumanoidRootPart")
+end
+
+local function Teleport(cf)
+    local root = GetMyRoot()
+    if root then
+        root.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+        root.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+        root.Anchored = true
+        root.CFrame = (typeof(cf) == "Vector3" and CFrame.new(cf) or cf)
+        task.wait(0.01)
+        root.Anchored = false
+    end
+end
+local function TweenTp(target)
+   
+    local TweenService = game:GetService("TweenService")
+    local root = GetMyRoot()
+    if root then
+        local targetCf = (typeof(target) == "Vector3") and CFrame.new(target) or target
+        local speed = 100
+       
+        local stepMax = 100 
+
+        root.Anchored = true 
+        
+        local function doTween(cf)
+            local dist = (root.Position - cf.Position).Magnitude
+            if dist < 0.1 then return end
+            local duration = dist / speed
+            local tween = TweenService:Create(root, TweenInfo.new(duration, Enum.EasingStyle.Linear), {CFrame = cf})
+            tween:Play()
+            tween.Completed:Wait()
+        end
+
+        doTween(root.CFrame * CFrame.new(0, 0, 0))
+
+        local currentPos = root.Position
+        local fullDistance = (targetCf.Position - currentPos).Magnitude
+
+        if fullDistance <= stepMax then
+            doTween(targetCf)
+        else
+           
+            local direction = (targetCf.Position - currentPos).Unit
+            local segments = math.floor(fullDistance / stepMax)
+            
+            for i = 1, segments do
+                local nextPos = currentPos + (direction * (i * stepMax))
+                
+                doTween(CFrame.new(nextPos) * targetCf.Rotation)
+                root.Anchored = false
+                task.wait(0.1) 
+                root.Anchored = true
+            end
+            
+            
+            doTween(targetCf)
+        end
+
+        root.Anchored = false 
+    end
+end
+
+local listnpc = {
+    {level = 1 , npc = "Giorno" , mob = "Bad Gi"},
+    {level = 10 , npc = "Scared Noob" , mob = "Scary Monster"},
+    {level = 20 , npc = "Koichi" , mob = "Giorno Giovanna"},
+    {level = 40 , npc = "Okayasu" , mob = "Yoshikage Kira"},
+    {level = 75 , npc = "Josuke" , mob = "Angelo"},
+    {level = 100 , npc = "Rohan" , mob = "Alien"},
+    {level = 125 , npc = "DIO" , mob = "Jotaro Part 4"},
+    {level = 150 , npc = "Muhammed Avdol" , mob = "Kakyoin"}
+   
+}
+
+local function getTarget()
+    local level = player.Data.Level.Value
+    local bestNpc, bestMob
+    for _, v in ipairs(listnpc) do
+        if level >= v.level then
+            bestNpc, bestMob = v.npc, v.mob
+        end
+    end
+    return bestNpc, bestMob
+end
+local function acceptquest()
+    local mobnpc, namenpc = getTarget()
+    if not mobnpc then return end
+    workspace:WaitForChild("Map"):WaitForChild("NPCs"):WaitForChild(mobnpc):WaitForChild("Done"):FireServer()
+    workspace:WaitForChild("Map"):WaitForChild("NPCs"):WaitForChild(mobnpc):WaitForChild("QuestDone"):FireServer()
+    task.wait(0.1)
+end
+
+
+
+
+
+
+
+
+local function farm()
+    acceptquest()
+    local _, targetName = getTarget()
+    if not targetName then return end
+    
+    local living = workspace:FindFirstChild("Living")
+    if not living then return end
+    local distance = Options.Distance and Options.Distance.Value or 8
+
+    for _, v in ipairs(living:GetChildren()) do
+        if v.Name == targetName and v:FindFirstChild("Humanoid") and v.Humanoid.Health > 0 then
+            repeat
+                if not _G.Aura then break end
+                local hrp = v:FindFirstChild("HumanoidRootPart")
+                if not hrp then break end
+                
+                local targetCf = hrp.CFrame * CFrame.new(0, 0, distance)
+                local myRoot = GetMyRoot()
+                
+                if myRoot then
+                    local dist = (myRoot.Position - targetCf.Position).Magnitude
+                    if dist > 15 then
+                        TweenTp(targetCf)
+                        game:GetService("Players").LocalPlayer.Character:WaitForChild("StandEvents"):WaitForChild("M1"):FireServer()
+                    else
+                        Teleport(targetCf)
+                        game:GetService("Players").LocalPlayer.Character:WaitForChild("StandEvents"):WaitForChild("M1"):FireServer()
+                    end             
+                end
+                game:GetService("Players").LocalPlayer.Character:WaitForChild("StandEvents"):WaitForChild("M1"):FireServer()
+                
+                task.wait(0.1)
+            until not v.Parent or v.Humanoid.Health <= 0
+        end
+        if not _G.Aura then break end
+    end
+end
+
+
+
+local function equipItem(sa)
+    local character = player.Character
+    if not character then return end
+    local humanoid = character:FindFirstChild("Humanoid")
+    local backpack = player:FindFirstChild("Backpack")
+    if not humanoid or not backpack then return end
+
+    local itemsToEquip = type(sa) == "table" and sa or {sa}
+    for _, itemName in ipairs(itemsToEquip) do
+        local tool = backpack:FindFirstChild(itemName)
+        if tool then
+            humanoid:EquipTool(tool)
+            return tool
+        end
+    end
+end
+
+local function useRemotest()
+    local character = player.Character
+    if not character then return end
+    
+    local items = {"Stand Arrow", "Charged Arrow"}
+    for _, itemName in ipairs(items) do
+        local tool = character:FindFirstChild(itemName)
+        if tool and tool:FindFirstChild("Use") then
+            tool.Use:FireServer()
+            break
+        end
+    end
+end
+local function useRemoterokaa()
+    local character = player.Character
+    if not character then return end
+    
+    local items = {"Rokakaka"}
+    for _, itemName in ipairs(items) do
+        local tool = character:FindFirstChild(itemName)
+        if tool and tool:FindFirstChild("Use") then
+            tool.Use:FireServer()
+            break
+        end
+    end
+end
+
+local stDropdown = Tabs.Main:AddDropdown("stDropdown", {
+    Title = "Stand Arrow",
+    Values = {"Stand Arrow", "Charged Arrow"}  ,
+    Default = "Stand Arrow",
+}) 
+local function autostand(selectedStands)
+    
+    local standObj = player.Data:FindFirstChild("Stand")
+    local currentStand = tostring(standObj.Value):lower():gsub("%s+", "")
+
+
+    print("-------------------------")
+    print("Checking: Stand [" .. currentStand .. "]")
+
+    local hasStand = false
+    for s, state in pairs(selectedStands) do
+        if state == true and tostring(s):lower():gsub("%s+", "") == currentStand then
+            hasStand = true
+            break
+        end
+    end
+
+
+    if not hasStand then
+        if currentStand ~= "none" then
+            print(">> ยังไม่ได้ที่ต้องการ: กำลังใช้ Rokakaka...")
+            equipItem("Rokakaka")
+            useRemoterokaa()
+            task.wait(2)
+        else
+            print(">> ไม่มี Stand: กำลังใช้ Arrow...")
+            equipItem(Options.stDropdown.Value)
+            useRemotest()
+            task.wait(3) 
+        end
+    else
+        print("!!! ได้ของที่ต้องการแล้ว: " .. standObj.Value .. " !!!")
+        _G.autore = false
+        if Options.AutoReRoll then
+            Options.AutoReRoll:SetValue(false)
+        end
+        Fluent:Notify({
+            Title = "Auto Re-roll",
+            Content = "Got " .. standObj.Value .. "!",
+            Duration = 10
+        })
+    end
+end
+local function autore(selectedStands, selectedAttrs)
+    
+    local standObj = player.Data:FindFirstChild("Stand")
+    local attrObj = player.Data:FindFirstChild("Attri") or player.Data:FindFirstChild("Attribute")
+    
+    local currentStand = tostring(standObj.Value):lower():gsub("%s+", "")
+    local currentAttr = attrObj and tostring(attrObj.Value):lower():gsub("%s+", "") or "none"
+
+
+    print("-------------------------")
+    print("Checking: Stand [" .. currentStand .. "] | Attribute [" .. currentAttr .. "]")
+
+    local hasStand = false
+    for s, state in pairs(selectedStands) do
+        if state == true and tostring(s):lower():gsub("%s+", "") == currentStand then
+            hasStand = true
+            break
+        end
+    end
+
+    local hasAttr = false
+    for a, state in pairs(selectedAttrs) do
+        if state == true and tostring(a):lower():gsub("%s+", "") == currentAttr then
+            hasAttr = true
+            break
+        end
+    end
+
+    if not hasStand or not hasAttr then
+        if currentStand ~= "none" then
+            print(">> ยังไม่ได้ที่ต้องการ: กำลังใช้ Rokakaka...")
+            equipItem("Rokakaka")
+            useRemoterokaa()
+            task.wait(2)
+        else
+            print(">> ไม่มี Stand: กำลังใช้ Arrow...")
+            equipItem(Options.stDropdown.Value)
+            useRemotest()
+            task.wait(3) 
+        end
+    else
+        print("!!! ได้ของที่ต้องการแล้ว: " .. standObj.Value .. " + " .. (attrObj and attrObj.Value or "None") .. " !!!")
+        _G.autore = false
+        if Options.AutoReRoll then
+            Options.AutoReRoll:SetValue(false)
+        end
+        Fluent:Notify({
+            Title = "Auto Re-roll",
+            Content = "Got " .. standObj.Value .. " with " .. (attrObj and attrObj.Value or "None") .. "!",
+            Duration = 10
+        })
+    end
+end
+local function autoreatr( selectedAttrs)
+    
+    local standObj = player.Data:FindFirstChild("Stand")
+    local attrObj = player.Data:FindFirstChild("Attri") or player.Data:FindFirstChild("Attribute")
+    
+    local currentStand = tostring(standObj.Value):lower():gsub("%s+", "")
+    local currentAttr = attrObj and tostring(attrObj.Value):lower():gsub("%s+", "") or "none"
+
+
+    print("-------------------------")
+    print("Checking: Stand [" .. currentStand .. "] | Attribute [" .. currentAttr .. "]")
+
+  
+
+    local hasAttr = false
+    for a, state in pairs(selectedAttrs) do
+        if state == true and tostring(a):lower():gsub("%s+", "") == currentAttr then
+            hasAttr = true
+            break
+        end
+    end
+
+    if  not hasAttr then
+        if currentStand ~= "none" then
+            print(">> ยังไม่ได้ที่ต้องการ: กำลังใช้ Rokakaka...")
+            equipItem("Rokakaka")
+            useRemoterokaa()
+            task.wait(2)
+        else
+            print(">> ไม่มี Stand: กำลังใช้ Arrow...")
+            equipItem(Options.stDropdown.Value)
+            useRemotest()
+            task.wait(3) 
+        end
+    else
+        print("!!! ได้ของที่ต้องการแล้ว: " .. standObj.Value .. " + " .. (attrObj and attrObj.Value or "None") .. " !!!")
+        _G.autore = false
+        if Options.AutoReRoll then
+            Options.AutoReRoll:SetValue(false)
+        end
+        Fluent:Notify({
+            Title = "Auto Re-roll",
+            Content = "Got " .. standObj.Value .. " with " .. (attrObj and attrObj.Value or "None") .. "!",
+            Duration = 10
+        })
+    end
+end
+
+Tabs.Farm:AddSlider("Distance", {
+    Title = "Farm Distance",
+    Default = 0,
+    Min = -20,
+    Max = 20,
+    Rounding = 1,
+    Callback = function(Value)
+      
+    end
+})
+Tabs.Farm:AddToggle("AutoFarm", {
+    Title = "Auto Farm",
+    Default = false,
+    Callback = function(Value)
+        _G.Aura = Value
+    end
+})
+
+local standDropdown = Tabs.Main:AddDropdown("standDropdown", {
+    Title = "Stand",
+    Values = {
+        "Cream", "Sc", "Hg", "Sf", "Sp", "Kq", "Aerosmith", "Spso", "Cd", "The emperor",
+        "Stone free", "Th", "Saw", "Mr", "Twau", "Purple smoke", "Ws", "Diver down",
+        "Tw", "Wr", "Ge", "Kc", "D4c", "Pm", "Sc ova", "Tw ova", "Jsp", "Sp ova",
+        "Ta1", "Dtw"
+    },
+    Multi = true,
+    Search = true,
+    Default = {"Aerosmith"},
+}) 
+ 
+
+
+
+local attrDropdown = Tabs.Main:AddDropdown("attrDropdown", {
+    Title = "Attribute",
+    Values = {
+        "Ascend", "Awakened", "Berserk", "Bloodline", "Control", "Drive", "Edge", "Execution", "Fighter", "Flow", "Focused", "Fortress", "Glass", "Guardian", "Instinct", "LastStand", "Limit", "Normal", "Overload", "Rage", "Shield", "Slayer", "Titan"
+    },
+    Multi = true,
+    Default = {"Normal"},
+}) 
+
+
+Tabs.Main:AddToggle("AutoReRoll", {
+    Title = "Auto Re-roll Stand/Attribute",
+    Default = false,
+    Callback = function(Value)
+        _G.autore = Value
+    end
+})
+Tabs.Main:AddToggle("AutoReRoll only stand", {
+    Title = "Auto Re-roll only stand",
+    Default = false,
+    Callback = function(Value)
+        _G.autostand = Value
+    end
+})
+Tabs.Main:AddToggle("AutoReRoll only attribute", {
+    Title = "Auto Re-roll only attribute",
+    Default = false,
+    Callback = function(Value)
+        _G.autoattr = Value
+    end
+})
+
+task.spawn(function()
+    while task.wait(0.5) do
+        if _G.autore then
+            autore(Options.standDropdown.Value, Options.attrDropdown.Value)
+        end
+    end
+end)
+task.spawn(function()
+    while task.wait(0.5) do
+        if _G.autostand then
+            if not _G.autore then
+                break
+            end
+            autostand(Options.standDropdown.Value)
+        end
+    end
+end)
+task.spawn(function()
+    while true do
+        if _G.autoattr then
+            autoreatr(Options.attrDropdown.Value)
+        end
+        task.wait()
+    end
+end)
+
+task.spawn(function()
+    while true do
+        if _G.Aura then
+           farm()
+        end
+        task.wait()
+    end
+end)
+
+
+
+
+
+
+
+
+
+-- Finish Setup
+SaveManager:SetLibrary(Fluent)
+InterfaceManager:SetLibrary(Fluent)
+SaveManager:SetIgnoreIndexes({})
+SaveManager:SetFolder("AnimeApocalypse")
+InterfaceManager:BuildInterfaceSection(Tabs.Settings)
+Window:SelectTab(1)
+SaveManager:LoadUserConfig()
+SaveManager:InitializeAutoSave(5)
+
