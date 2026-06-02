@@ -883,7 +883,7 @@ local standDropdown = Tabs.Main:AddDropdown("standDropdown", {
 local attrDropdown = Tabs.Main:AddDropdown("attrDropdown", {
     Title = "Attribute",
     Values = {
-        "Ascend", "Awakened", "Berserk", "Bloodline", "Control", "Drive", "Edge", "Execution", "Fighter", "Flow", "Focused", "Fortress", "Glass", "Guardian", "Instinct", "LastStand", "Limit", "Normal", "Overload", "Rage", "Shield", "Slayer", "Titan"
+        "Ascend", "Awakened", "Berserk", "Bloodline", "Control", "Drive", "Edge", "Execution", "Fighter", "Flow", "Focused", "Fortress", "Glass", "Guardian", "Instinct", "LastStand", "Limit", "Normal", "Overload", "Rage", "Shield", "Slayer", "Titan", "elite" ,"legendary","mythical"
     },
     Multi = true,
     Default = {"Normal"},
