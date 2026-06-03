@@ -304,6 +304,9 @@ local function FRAM(target)
     -- First try the selected target
     for _, enemy in ipairs(enemies:GetChildren()) do
         if enemy.Name == targetName then
+            local hp = enemy:FindFirstChild("HealthBar") and enemy.HealthBar:FindFirstChild("hpText")
+            local mathhp = hp.Text:match("%d+")
+            if mathhp and tonumber(mathhp) >= 1 then
             local pivot = enemy:GetPivot()
             if pivot then
                 local distrig = (root.Position - pivot.Position).Magnitude
@@ -313,6 +316,7 @@ local function FRAM(target)
                 end
             end
             return
+        end
         end
     end
 
