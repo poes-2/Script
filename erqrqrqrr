@@ -344,8 +344,7 @@ end
 local Charging = false
 
 local function EnsureCharging()
-    while _G.AutoDrops do
-        task.wait(2)
+    while _G.AutoDrops and task.wait(2) do
         if not Charging then
             local zone = workspace:FindFirstChild("Map") and workspace.Map:FindFirstChild("Plot") and workspace.Map.Plot:FindFirstChild("ChargeZoneGroup")
            
@@ -363,7 +362,6 @@ local function click()
     local ApplyMutation = game:GetService("ReplicatedStorage"):WaitForChild("ApplyMutation")
     local mutationSet = {}
     for _, m in pairs(mutation) do mutationSet[m] = true end
-    if not _G.AutoDropss then return end
 
     if _G.AutoDropss then
         while Charging do
