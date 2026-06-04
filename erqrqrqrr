@@ -154,7 +154,14 @@ local Window = Fluent:CreateWindow({
     MinimizeKey = Enum.KeyCode.LeftControl
 })
 
--- Custom UI for Profile and Toggle
+local Tabs = {
+    Farm = Window:AddTab({ Title = "Farm", Icon = "Sword" }),
+    Settings = Window:AddTab({ Title = "Settings", Icon = "settings" })
+}
+
+local Options = Fluent.Options
+
+-- Custom UI for Profile and Toggle (เรียกหลัง Tabs สร้างเสร็จ)
 local function setupCustomUI(window)
     local screenGui = Instance.new("ScreenGui")
     screenGui.Name = "GardenHorizoneCustomUI"
@@ -267,14 +274,6 @@ local function setupCustomUI(window)
 end
 setupCustomUI(Window)
 
-local Tabs = {
-    Farm = Window:AddTab({ Title = "Farm", Icon = "Sword" }),
-    Settings = Window:AddTab({ Title = "Settings", Icon = "settings" })
-}
-
-local Options = Fluent.Options
-
-
 _G.AutoDrops = false
 _G.AutoDropss = false
 
@@ -363,8 +362,7 @@ local function click()
     local mutationSet = {}
     for _, m in pairs(mutation) do mutationSet[m] = true end
 
-    if _G.AutoDropss then
-        while Charging do
+        while _G.AutoDropss and Charging do
             local gui = player:FindFirstChild("PlayerGui")
             if gui then
                 local BifrostImageQTE = gui:FindFirstChild("BifrostImageQTE")
@@ -379,8 +377,7 @@ local function click()
             end
             task.wait(0.05) 
         end
-        
-    end
+    
 end
 
 -- Hook Remote 
