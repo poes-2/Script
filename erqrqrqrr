@@ -370,12 +370,13 @@ local function click()
                     for _, v in pairs(BifrostImageQTE:GetChildren()) do
                         print("🔍 Checking QTE Button: " .. v.Name)
                         if mutationSet[v.Name] then
+                            wait(0.5)
                             ApplyMutation:FireServer(v.Name)
                         end
                     end
                 end
             end
-            task.wait(0.05) 
+            task.wait(0.1) 
         end
     
 end
