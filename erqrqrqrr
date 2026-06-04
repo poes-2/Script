@@ -284,14 +284,22 @@ end
 
 _G.Autotp = false
 
+local GuiService = game:GetService("GuiService")
+
 local function clickGui(guiObject)
-    -- ใช้ firesignal สั่งให้ปุ่มทำงานทันทีโดยไม่ต้องคลิกจริง
-    if guiObject:IsA("GuiButton") then
-        firesignal(guiObject.MouseButton1Click)
-        firesignal(guiObject.MouseButton1Down)
-        firesignal(guiObject.MouseButton1Up)
-        firesignal(guiObject.Activated)
-        print("⚡ Firesignal Activated: " .. guiObject.Name)
+    if guiObject and guiObject:IsA("GuiObject") and guiObject.AbsolutePosition then
+        -- คำนวณหาค่า Offset ของแถบ Topbar บนหน้าจอของคุณแบบอัตโนมัติ
+        local inset = GuiService:GetGuiInset()
+        
+        -- หาจุดกึ่งกลางของปุ่ม และบวกค่า Inset ที่ถูกต้องของระบบเข้าไป
+        local x = guiObject.AbsolutePosition.X + (guiObject.AbsoluteSize.X / 2) + inset.X
+        local y = guiObject.AbsolutePosition.Y + (guiObject.AbsoluteSize.Y / 2) + inset.Y
+        
+        -- ส่งคำสั่งคลิก
+        VIM:SendMouseButtonEvent(x, y, 0, true, game, 0)
+        task.wait(0.02)
+        VIM:SendMouseButtonEvent(x, y, 0, false, game, 0)
+        print("🎯 VIM Clicked at: " .. tostring(x) .. ", " .. tostring(y))
     end
 end
 
@@ -358,10 +366,7 @@ local function EnsureCharging()
 end
 
 local function click()
-    local ApplyMutation = game:GetService("ReplicatedStorage"):WaitForChild("ApplyMutation")
-    local mutationSet = {}
-    for _, m in pairs(mutation) do mutationSet[m] = true end
-
+    
         while _G.AutoDropss and Charging do
             local gui = player:FindFirstChild("PlayerGui")
             if gui then
@@ -369,10 +374,7 @@ local function click()
                 if BifrostImageQTE then
                     for _, v in pairs(BifrostImageQTE:GetChildren()) do
                         print("🔍 Checking QTE Button: " .. v.Name)
-                        if mutationSet[v.Name] then
-                            wait(0.5)
-                            ApplyMutation:FireServer(v.Name)
-                        end
+                       clickGui(v)
                     end
                 end
             end
