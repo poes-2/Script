@@ -409,9 +409,9 @@ end))
 
 
 
-Tabs.Main:AddToggle("Autofarm", {Title = "Auto farm", Default = false, Callback = function(v) _G.AutoDrops = v end})
+Tabs.Farm:AddToggle("Autofarm", {Title = "Auto farm", Default = false, Callback = function(v) _G.AutoDrops = v end})
 
-Tabs.Main:AddToggle("Auto click", {Title = "Auto click", Default = false, Callback = function(v) _G.AutoDropss = v end})
+Tabs.Farm:AddToggle("Auto click", {Title = "Auto click", Default = false, Callback = function(v) _G.AutoDropss = v end})
 
 
 task.spawn(function()
