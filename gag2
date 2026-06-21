@@ -330,35 +330,18 @@ end
 task.spawn(function()
     pcall(function()
         local parentUI = LocalPlayer:WaitForChild("PlayerGui", 15)
-        if parentUI then
+        
             local LoadingGui = parentUI:WaitForChild("LoadingGui", 15)
-            if LoadingGui then
+            
                 local VirtualInputManager = game:GetService("VirtualInputManager")
                 
-                local function shouldBypass()
-                    for _, child in ipairs(LoadingGui:GetDescendants()) do
-                        if child:IsA("TextLabel") and child.Visible then
-                            local text = child.Text:lower()
-                            if text:find("skip") or text:find("press") or text:find("click") or text:find("enter") or text:find("any") then
-                                return true
-                            end
-                        end
-                    end
-                    local variantFrame = LoadingGui:FindFirstChild("Variant1Frame")
-                    if variantFrame and variantFrame.Visible then
-                        return true
-                    end
-                    return false
-                end
+        
                 
-                while LoadingGui.Parent and LoadingGui.Enabled do
-                    if shouldBypass() then
-                        -- Simulate Space keypress
-                        pcall(function()
-                            VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.Space, false, game)
-                            task.wait(0.05)
-                            VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.Space, false, game)
-                        end)
+                while true do
+                   
+
+                  
+                
                         -- Simulate mouse click at center of screen
                         pcall(function()
                             local x = 500
@@ -367,11 +350,11 @@ task.spawn(function()
                             task.wait(0.05)
                             VirtualInputManager:SendMouseButtonEvent(x, y, 0, false, game, 0)
                         end)
-                    end
+                    
                     task.wait(1)
                 end
-            end
-        end
+            
+        
     end)
 end)
 -- =================================================================
@@ -764,7 +747,7 @@ createSettingsToggle("ToggleSell", "Auto Sell (Pack >= 100)", false, function(v)
 createSettingsToggle("ToggleEvent", "Auto Collect Seeds Event", false, function(v) _G.EventSeeds = v end)
 createSettingsToggle("ToggleLag", "Low Graphics Mode", false, function(v) _G.LowGraphics = v; setLowGraphics(v) end)
 createTextBox("MailboxTargetId", "Target Mailbox ID:", "Enter Roblox ID", _G.idpl, function(txt) _G.idpl = tonumber(txt) or _G.idpl end)
-createSettingsAction("ActionStart", "Skip Game Cutscenes", startGame)
+
 createSettingsAction("ActionSend", "Send Mail (Gold/Rainbow)", sand)
 createSettingsAction("ActionHop", "Server Hop (Low Players)", serverHopHop)
 -- Navigation button wiring
