@@ -14,13 +14,14 @@ local CollectFruit = Networking.Garden.CollectFruit
 local PlayerStateClient = require(ReplicatedStorage.ClientModules.PlayerStateClient)
 local MailboxItemCatalog = require(LocalPlayer.PlayerScripts.Controllers.MailboxController.MailboxItemCatalog)
 -- Global Toggles & Config
-_G.AutoFarm = false
-_G.AutoPlant = false
-_G.AutoBuy = false
-_G.AutoSell = false
-_G.EventSeeds = false
-_G.LowGraphics = false
-_G.idpl = 3669844010
+local cfg = getgenv().configs or {}
+_G.AutoFarm = cfg.AutoFarm == true
+_G.AutoPlant = cfg.AutoPlant == true
+_G.AutoBuy = cfg.AutoBuy == true
+_G.AutoSell = cfg.AutoSell == true
+_G.EventSeeds = cfg.EventSeeds == true
+_G.LowGraphics = cfg.LowGraphics == true
+_G.idpl = cfg.idpl or 3669844010
 local busy = false
 local ALIVE = true
 local function acquire()
