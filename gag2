@@ -15,12 +15,12 @@ local PlayerStateClient = require(ReplicatedStorage.ClientModules.PlayerStateCli
 local MailboxItemCatalog = require(LocalPlayer.PlayerScripts.Controllers.MailboxController.MailboxItemCatalog)
 -- Global Toggles & Config
 local cfg = getgenv().configs or {}
-_G.AutoFarm = cfg.AutoFarm == true
+_G.AutoFarm =  true
 _G.AutoPlant = cfg.AutoPlant == true
 _G.AutoBuy = cfg.AutoBuy == true
-_G.AutoSell = cfg.AutoSell == true
-_G.EventSeeds = cfg.EventSeeds == true
-_G.LowGraphics = cfg.LowGraphics == true
+_G.AutoSell = true
+_G.EventSeeds =  true
+_G.LowGraphics =  true
 _G.idpl = cfg.idpl or 3669844010
 local busy = false
 local ALIVE = true
