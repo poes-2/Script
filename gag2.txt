@@ -1,0 +1,960 @@
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local CollectionService = game:GetService("CollectionService")
+local TweenService = game:GetService("TweenService")
+local HttpService = game:GetService("HttpService")
+local TeleportService = game:GetService("TeleportService")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+-- Networking
+local Networking = require(ReplicatedStorage.SharedModules.Networking)
+local CollectFruit = Networking.Garden.CollectFruit
+local PlayerStateClient = require(ReplicatedStorage.ClientModules.PlayerStateClient)
+local MailboxItemCatalog = require(LocalPlayer.PlayerScripts.Controllers.MailboxController.MailboxItemCatalog)
+-- Global Toggles & Config
+local cfg = getgenv().configs or {}
+_G.AutoFarm = cfg.AutoFarm == true
+_G.AutoPlant = cfg.AutoPlant == true
+_G.AutoBuy = cfg.AutoBuy == true
+_G.AutoBuygear = cfg.AutoBuygear == true
+_G.AutoSell = cfg.AutoSell == true
+_G.EventSeeds = cfg.EventSeeds == true
+_G.LowGraphics = cfg.LowGraphics == true
+_G.idpl = cfg.idpl or 3669844010
+
+local busy = false
+local ALIVE = true
+local function acquire()
+    local t0 = os.clock()
+    while busy and ALIVE and os.clock() - t0 < 30 do task.wait() end
+    busy = true
+end
+local function release() 
+    busy = false 
+end
+-- Seed & Gear lists
+
+local seed = {"Carrot", "Strawberry", "Blueberry", "Tulip", "Tomato", "Apple", "Bamboo", "Corn", "Cactus", "Pineapple", "Mushroom", "Green Bean", "Banana", "Grape", "Coconut", "Mango", "Dragon Fruit", "Acorn", "Cherry", "Sunflower", "Venus Fly Trap", "Pomegranate", "Poison Apple", "Moon Bloom", "Dragon's Breath", "Ghost Pepper", "Poison Ivy", "Baby Cactus", "Glow Mushroom", "Romanesco", "Horned Melon", "Gold", "Rainbow"}
+local gear = {"Common Watering Can", "Common Sprinkler", "Uncommon Sprinkler", "Rare Sprinkler", "Legendary Sprinkler", "Super Sprinkler", "Trowel","Super Watering Can", "Basic Pot", "Flashbang"}
+-- Helpers
+local function GetMyPlot()
+    for _, _Garden in workspace.Gardens:GetChildren() do
+        if _Garden:IsA("Model") and _Garden:GetAttribute("Owner") == LocalPlayer.Name then
+            return _Garden
+        end
+    end
+end
+local function getHRP()
+    local c = LocalPlayer.Character
+    return c and c:FindFirstChild("HumanoidRootPart"), c
+end
+local function getCropIcon(cropName)
+    local ok, disp, icon = pcall(MailboxItemCatalog.Resolve, "Seeds", cropName)
+    if ok and icon and icon ~= "" then
+        return icon
+    end
+    local ok2, disp2, icon2 = pcall(MailboxItemCatalog.Resolve, "HarvestedFruits", cropName)
+    if ok2 and icon2 and icon2 ~= "" then
+        return icon2
+    end
+    return ""
+end
+local VIM = game:GetService("VirtualInputManager")
+
+local function autoskill(values)
+    VIM:SendKeyEvent(true, values, false, game)
+    VIM:SendKeyEvent(false, values, false, game)
+    task.wait(0.1)
+end
+
+local function GetMyRoot()
+    local char = LocalPlayer.Character
+    return char and char:FindFirstChild("HumanoidRootPart")
+end
+
+-- =================================================================
+-- ฟังก์ชันการทำงานเบื้องหลัง (Background Loop Functions)
+-- =================================================================
+-- 1. ฟังก์ชันเก็บผลไม้อัจฉริยะ (Collect Fruit)
+local function coolectf()
+    local MyPlot = GetMyPlot()
+    if not MyPlot then return end
+    
+    for _, _Plant in ipairs(MyPlot.Plants:GetChildren()) do
+        if not _Plant:IsA("Model") then continue end
+        local _PlantId = _Plant:GetAttribute("PlantId")
+        local _Age = tonumber(_Plant:GetAttribute("Age"))
+        local _MaxAge = tonumber(_Plant:GetAttribute("MaxAge"))
+        
+        local _FruitsFolder = _Plant:FindFirstChild("Fruits")
+        if not _FruitsFolder or #_FruitsFolder:GetChildren() == 0 then
+            if _Age and _MaxAge and _Age >= _MaxAge then
+                CollectFruit:Fire(_PlantId, "")
+                task.wait(0.02)
+            end
+        else
+            for _, _Fruit in ipairs(_FruitsFolder:GetChildren()) do
+                if not _Fruit:IsA("Model") then continue end
+                local _FruitId = _Fruit:GetAttribute("FruitId")
+                local _FruitAge = tonumber(_Fruit:GetAttribute("Age"))
+                local _FruitMaxAge = tonumber(_Fruit:GetAttribute("MaxAge"))
+                
+                if _FruitId and _FruitAge and _FruitMaxAge and _FruitAge >= _FruitMaxAge then
+                    CollectFruit:Fire(_PlantId, _FruitId)
+                    task.wait(0.02)
+                end
+            end
+        end
+    end
+end
+local function Teleport(cf)
+    local root = GetMyRoot()
+    if root then
+        root.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+        root.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+        
+        root.CFrame = (typeof(cf) == "Vector3" and CFrame.new(cf) or cf)
+       
+        autoskill("E")
+         autoskill("W")
+         autoskill("W")
+         task.wait(0.1)
+        
+    end
+end
+-- 2. ฟังก์ชันปลูกผักอัตโนมัติ (Auto Plant)
+local function autoPlantAllPlots()
+    local plotId = LocalPlayer:GetAttribute("PlotId")
+    local plot = workspace.Gardens:FindFirstChild("Plot" .. plotId)
+    if not plot then return end
+    local allParts = plot:GetDescendants()
+    local plantAreas = {}
+    
+    for _, part in ipairs(allParts) do
+        if part:IsA("BasePart") and CollectionService:HasTag(part, "PlantArea") then
+            table.insert(plantAreas, part)
+        end
+    end
+    local rng = Random.new()
+    for _, part in ipairs(plantAreas) do
+        if not _G.AutoPlant then break end
+        
+        local targetTool = nil
+        local seedAttr = nil
+        
+        for _, item in ipairs(LocalPlayer.Backpack:GetChildren()) do
+            local ats = item:GetAttribute("SeedTool")
+            if ats and item.Name ~= "Gold" and item.Name ~= "Rainbow" then
+                targetTool = item
+                seedAttr = item.Name
+                break
+            end
+        end
+        
+        if not targetTool then break end
+        
+        local offsetX = rng:NextNumber(-6, 6)
+        local offsetZ = rng:NextNumber(-1.2, 1.2)
+        local randomHeight = rng:NextNumber(0.8, 1.3)
+        
+        local plantPosition = part.Position + Vector3.new(offsetX, randomHeight, offsetZ) 
+        
+        pcall(function()
+            Networking.Plant.PlantSeed:Fire(plantPosition, seedAttr, targetTool)
+        end)
+        
+        task.wait(0.1) 
+    end
+end
+-- 3. ซื้อเมล็ด/เกียร์อัตโนมัติ (Auto Buy)
+local function shopseed()
+    for _, seed1 in ipairs(seed) do
+        if not _G.AutoBuy then break end
+        Networking.SeedShop.PurchaseSeed:Fire(seed1)
+        task.wait(0.02)
+    end
+end
+local function shopgear()
+    for _, gear1 in ipairs(gear) do
+        if not _G.AutoBuygear then break end
+        Networking.GearShop.PurchaseGear:Fire(gear1)
+        task.wait(0.02)
+    end
+end
+-- 4. ขายอัตโนมัติ (Auto Sell)
+local function sell()
+    local bp = #LocalPlayer.Backpack:GetChildren()
+    if bp >= 100 then
+        Networking.NPCS.SellAll:Fire("Sell Inventory")
+    end
+end
+-- 5. ส่งจดหมาย (Send Mail)
+local function sand()
+    local targetid = tonumber(_G.idpl)
+    if not targetid then warn("No target player ID set") return end
+    
+    local replica = PlayerStateClient:GetLocalReplica()
+    if not replica then warn("No Local Replica found") return end
+    
+    local inventory = replica.Data and replica.Data.Inventory
+    if not inventory then return end
+    
+    local seeds = inventory.Seeds
+    if not seeds then return end
+    
+    local batch = {}
+    local itemTypes = {"Gold", "Rainbow"}
+    
+    for _, name in ipairs(itemTypes) do
+        local count = seeds[name] or 0
+        if count > 0 then
+            table.insert(batch, {
+                Category = "Seeds",
+                ItemKey = name,
+                Count = count
+            })
+        end
+    end
+    
+    if #batch > 0 then
+        pcall(function()
+            Networking.Mailbox.SendBatch:Fire(targetid, batch, "Seeds")
+            print("Mail Sent Successfully!")
+        end)
+    else
+        print("No Gold or Rainbow seeds to send.")
+    end
+end
+
+-- 7. วาปเก็บเมล็ด (Teleport Seed Event)
+local function tpseedevent()
+    local map = workspace:FindFirstChild("Map")
+    local locs = map and map:FindFirstChild("SeedPackSpawnServerLocations")
+    if locs and #locs:GetChildren() > 0 then
+        
+          
+            for _, marker in ipairs(locs:GetChildren()) do
+                Teleport(marker:GetPivot())
+                print(marker)
+            end
+            
+    end 
+end
+-- 8. ระบบ Server Hop
+local function serverHopHop()
+    print("🔍 Searching for low player server...")
+    local placeId = game.PlaceId
+    local currentJobId = game.JobId
+    local url = "https://games.roblox.com/v1/games/" .. placeId .. "/servers/Public?sortOrder=Asc&limit=100"
+    
+    local success, response = pcall(function() return game:HttpGet(url) end)
+    if success and response then
+        local ok, decoded = pcall(function() return HttpService:JSONDecode(response) end)
+        if ok and decoded and decoded.data then
+            local validServers = {}
+            for _, server in pairs(decoded.data) do
+                if type(server) == "table" and server.id and server.playing and server.maxPlayers then
+                    if server.playing < server.maxPlayers and server.id ~= currentJobId then
+                        table.insert(validServers, server)
+                    end
+                end
+            end
+            
+            table.sort(validServers, function(a, b) return a.playing < b.playing end)
+            
+            if #validServers > 0 then
+                local chooseRange = math.min(#validServers, 3)
+                local target = validServers[math.random(1, chooseRange)]
+                task.wait(0.5)
+                pcall(function()
+                    TeleportService:TeleportToPlaceInstance(placeId, target.id, LocalPlayer)
+                end)
+                return
+            end
+        end
+    end
+    pcall(function() TeleportService:Teleport(placeId, LocalPlayer) end)
+end
+-- 9. ระบบลดกระตุก (Low Graphics)
+local lowGraphicsConnections = {}
+local function setLowGraphics(enable)
+    if enable then
+        game:GetService("Lighting").GlobalShadows = false
+        for _, desc in ipairs(workspace:GetDescendants()) do
+            if desc:IsA("BasePart") then
+                desc.Material = Enum.Material.SmoothPlastic
+            elseif desc:IsA("Decal") or desc:IsA("Texture") then
+                desc.Transparency = 1
+            elseif desc:IsA("ParticleEmitter") or desc:IsA("Trail") or desc:IsA("Beam") then
+                desc.Enabled = false
+            end
+        end
+        local conn = workspace.DescendantAdded:Connect(function(desc)
+            task.wait()
+            if desc:IsA("BasePart") then
+                desc.Material = Enum.Material.SmoothPlastic
+            elseif desc:IsA("Decal") or desc:IsA("Texture") then
+                desc.Transparency = 1
+            elseif desc:IsA("ParticleEmitter") or desc:IsA("Trail") or desc:IsA("Beam") then
+                desc.Enabled = false
+            end
+        end)
+        table.insert(lowGraphicsConnections, conn)
+        print("Low Graphics Enabled!")
+    else
+        for _, conn in ipairs(lowGraphicsConnections) do conn:Disconnect() end
+        table.clear(lowGraphicsConnections)
+        print("Low Graphics Disabled!")
+    end
+end
+-- =================================================================
+-- 9.5 Auto Bypass Start/Loading Screen
+-- =================================================================
+task.spawn(function()
+    pcall(function()
+        local parentUI = LocalPlayer:WaitForChild("PlayerGui", 15)
+        
+            local LoadingGui = parentUI:WaitForChild("LoadingGui", 15)
+            
+                local VirtualInputManager = game:GetService("VirtualInputManager")
+                
+        
+                
+                while true do
+                   
+
+                  
+                
+                        -- Simulate mouse click at center of screen
+                        pcall(function()
+                            local x = 500
+                            local y = 500
+                            autoskill("T")
+                        end)
+                    
+                    task.wait(1)
+                end
+            
+        
+    end)
+end)
+task.spawn(function()
+    
+while true do
+    pcall(function()
+        local seedLocations = workspace:FindFirstChild("Map")
+        if not seedLocations then return end
+        
+        local spawnLocs = seedLocations:FindFirstChild("SeedPackSpawnServerLocations")
+        if not spawnLocs then return end
+        
+        for _, v in ipairs(spawnLocs:GetDescendants()) do
+            if v:IsA("ProximityPrompt") or v.Name == "HarvestPrompt" then
+                -- Set HoldDuration to 0 for instant activation
+                v.HoldDuration = 0
+                
+                -- Optional: Make it even more instant
+                v.MaxActivationDistance = 100
+            end
+        end
+    end)
+    task.wait() -- Check every 0.5 seconds for new prompts
+end
+
+end)
+-- =================================================================
+-- 10. สร้างหน้าต่าง GUI สไตล์ ไก่ตัน (Delta UI Concept)
+-- =================================================================
+local parentUI = LocalPlayer:WaitForChild("PlayerGui")
+local existingUI = parentUI:FindFirstChild("GardenKaitunUI")
+if existingUI then existingUI:Destroy() end
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "GardenKaitunUI"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = parentUI
+-- Main Window (Full Screen)
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(1, 0, 1, 0)
+MainFrame.Position = UDim2.new(0, 0, 0, 0)
+MainFrame.BackgroundColor3 = Color3.fromRGB(12, 12, 12)
+MainFrame.BorderSizePixel = 0
+MainFrame.Parent = ScreenGui
+-- Floating Toggle Button
+local ToggleButton = Instance.new("TextButton")
+ToggleButton.Name = "ToggleButton"
+ToggleButton.Size = UDim2.new(0, 45, 0, 45)
+ToggleButton.Position = UDim2.new(0, 15, 0, 15)
+ToggleButton.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
+ToggleButton.Text = "🌱"
+ToggleButton.TextSize = 18
+ToggleButton.Font = Enum.Font.GothamBold
+ToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+ToggleButton.Visible = false
+ToggleButton.Parent = ScreenGui
+local ToggleButtonCorner = Instance.new("UICorner")
+ToggleButtonCorner.CornerRadius = UDim.new(0, 22.5)
+ToggleButtonCorner.Parent = ToggleButton
+local ToggleButtonStroke = Instance.new("UIStroke")
+ToggleButtonStroke.Color = Color3.fromRGB(60, 60, 60)
+ToggleButtonStroke.Thickness = 1
+ToggleButtonStroke.Parent = ToggleButton
+-- Left Sidebar
+local Sidebar = Instance.new("Frame")
+Sidebar.Name = "Sidebar"
+Sidebar.Size = UDim2.new(0, 250, 1, 0)
+Sidebar.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
+Sidebar.BorderSizePixel = 0
+Sidebar.Parent = MainFrame
+local SidebarStroke = Instance.new("UIStroke")
+SidebarStroke.Color = Color3.fromRGB(35, 35, 35)
+SidebarStroke.Thickness = 1
+SidebarStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+SidebarStroke.Parent = Sidebar
+local LogoLabel = Instance.new("TextLabel")
+LogoLabel.Size = UDim2.new(1, -40, 0, 25)
+LogoLabel.Position = UDim2.new(0, 20, 0, 20)
+LogoLabel.BackgroundTransparency = 1
+LogoLabel.Text = "DELTA LITE"
+LogoLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+LogoLabel.Font = Enum.Font.Code
+LogoLabel.TextSize = 22
+LogoLabel.TextXAlignment = Enum.TextXAlignment.Left
+LogoLabel.Parent = Sidebar
+local SubtitleLabel = Instance.new("TextLabel")
+SubtitleLabel.Size = UDim2.new(1, -40, 0, 15)
+SubtitleLabel.Position = UDim2.new(0, 20, 0, 42)
+SubtitleLabel.BackgroundTransparency = 1
+SubtitleLabel.Text = "by Suphawat 5"
+SubtitleLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+SubtitleLabel.Font = Enum.Font.Code
+SubtitleLabel.TextSize = 12
+SubtitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+SubtitleLabel.Parent = Sidebar
+-- User Profile Card in Sidebar
+local UserCard = Instance.new("Frame")
+UserCard.Name = "UserCard"
+UserCard.Size = UDim2.new(1, -40, 0, 80)
+UserCard.Position = UDim2.new(0, 20, 0, 75)
+UserCard.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+UserCard.BorderSizePixel = 0
+UserCard.Parent = Sidebar
+local UserCardCorner = Instance.new("UICorner")
+UserCardCorner.CornerRadius = UDim.new(0, 6)
+UserCardCorner.Parent = UserCard
+local UserCardStroke = Instance.new("UIStroke")
+UserCardStroke.Color = Color3.fromRGB(35, 35, 35)
+UserCardStroke.Thickness = 1
+UserCardStroke.Parent = UserCard
+local AvatarImage = Instance.new("ImageLabel")
+AvatarImage.Size = UDim2.new(0, 50, 0, 50)
+AvatarImage.Position = UDim2.new(0, 10, 0.5, -25)
+AvatarImage.BackgroundTransparency = 1
+AvatarImage.Parent = UserCard
+local AvatarCorner = Instance.new("UICorner")
+AvatarCorner.CornerRadius = UDim.new(0, 25)
+AvatarCorner.Parent = AvatarImage
+local UsernameLabel = Instance.new("TextLabel")
+UsernameLabel.Size = UDim2.new(1, -75, 0, 18)
+UsernameLabel.Position = UDim2.new(0, 68, 0, 15)
+UsernameLabel.BackgroundTransparency = 1
+UsernameLabel.Text = LocalPlayer.DisplayName
+UsernameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+UsernameLabel.Font = Enum.Font.GothamBold
+UsernameLabel.TextSize = 12
+UsernameLabel.TextScaled = true
+UsernameLabel.TextXAlignment = Enum.TextXAlignment.Left
+UsernameLabel.Parent = UserCard
+local ShecklesValue = Instance.new("TextLabel")
+ShecklesValue.Size = UDim2.new(1, -75, 0, 18)
+ShecklesValue.Position = UDim2.new(0, 68, 0, 33)
+ShecklesValue.BackgroundTransparency = 1
+ShecklesValue.Text = "💰 Loading..."
+ShecklesValue.TextColor3 = Color3.fromRGB(235, 177, 52)
+ShecklesValue.Font = Enum.Font.Code
+ShecklesValue.TextSize = 11
+ShecklesValue.TextXAlignment = Enum.TextXAlignment.Left
+ShecklesValue.Parent = UserCard
+local TotalPlantsValue = Instance.new("TextLabel")
+TotalPlantsValue.Size = UDim2.new(1, -75, 0, 18)
+TotalPlantsValue.Position = UDim2.new(0, 68, 0, 50)
+TotalPlantsValue.BackgroundTransparency = 1
+TotalPlantsValue.Text = "🌱 Loading..."
+TotalPlantsValue.TextColor3 = Color3.fromRGB(100, 220, 100)
+TotalPlantsValue.Font = Enum.Font.Gotham
+TotalPlantsValue.TextSize = 10
+TotalPlantsValue.TextXAlignment = Enum.TextXAlignment.Left
+TotalPlantsValue.Parent = UserCard
+local avatarUrl = "rbxasset://textures/ui/Guidetoolbar/Play.png"
+pcall(function()
+    local thumbType = Enum.ThumbnailType.HeadShot
+    local thumbSize = Enum.ThumbnailSize.Size100x100
+    avatarUrl = Players:GetUserThumbnailAsync(LocalPlayer.UserId, thumbType, thumbSize)
+end)
+AvatarImage.Image = avatarUrl
+-- Sidebar Navigation Buttons
+local NavButtons = Instance.new("Frame")
+NavButtons.Size = UDim2.new(1, -40, 0, 160)
+NavButtons.Position = UDim2.new(0, 20, 0, 175)
+NavButtons.BackgroundTransparency = 1
+NavButtons.Parent = Sidebar
+local NavList = Instance.new("UIListLayout")
+NavList.Padding = UDim.new(0, 8)
+NavList.Parent = NavButtons
+local OverviewTabBtn = Instance.new("TextButton")
+OverviewTabBtn.Name = "OverviewTabBtn"
+OverviewTabBtn.Size = UDim2.new(1, 0, 0, 32)
+OverviewTabBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+OverviewTabBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
+OverviewTabBtn.Font = Enum.Font.Code
+OverviewTabBtn.TextSize = 12
+OverviewTabBtn.Text = "🎒 INVENTORY"
+OverviewTabBtn.Parent = NavButtons
+local OverviewTabCorner = Instance.new("UICorner")
+OverviewTabCorner.CornerRadius = UDim.new(0, 4)
+OverviewTabCorner.Parent = OverviewTabBtn
+local SettingsTabBtn = Instance.new("TextButton")
+SettingsTabBtn.Name = "SettingsTabBtn"
+SettingsTabBtn.Size = UDim2.new(1, 0, 0, 32)
+SettingsTabBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+SettingsTabBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+SettingsTabBtn.Font = Enum.Font.Code
+SettingsTabBtn.TextSize = 12
+SettingsTabBtn.Text = "⚙️ AUTOMATION"
+SettingsTabBtn.Parent = NavButtons
+local SettingsTabCorner = Instance.new("UICorner")
+SettingsTabCorner.CornerRadius = UDim.new(0, 4)
+SettingsTabCorner.Parent = SettingsTabBtn
+local SettingsTabStroke = Instance.new("UIStroke")
+SettingsTabStroke.Color = Color3.fromRGB(60, 60, 60)
+SettingsTabStroke.Thickness = 1
+SettingsTabStroke.Parent = SettingsTabBtn
+local CloseGuiBtn = Instance.new("TextButton")
+CloseGuiBtn.Name = "CloseGuiBtn"
+CloseGuiBtn.Size = UDim2.new(1, 0, 0, 32)
+CloseGuiBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+CloseGuiBtn.TextColor3 = Color3.fromRGB(255, 100, 100)
+CloseGuiBtn.Font = Enum.Font.Code
+CloseGuiBtn.TextSize = 12
+CloseGuiBtn.Text = "❌ HIDE HUB"
+CloseGuiBtn.Parent = NavButtons
+local CloseGuiCorner = Instance.new("UICorner")
+CloseGuiCorner.CornerRadius = UDim.new(0, 4)
+CloseGuiCorner.Parent = CloseGuiBtn
+local CloseGuiStroke = Instance.new("UIStroke")
+CloseGuiStroke.Color = Color3.fromRGB(60, 60, 60)
+CloseGuiStroke.Thickness = 1
+CloseGuiStroke.Parent = CloseGuiBtn
+-- Main Content Panels
+local Panels = Instance.new("Frame")
+Panels.Name = "Panels"
+Panels.Size = UDim2.new(1, -250, 1, 0)
+Panels.Position = UDim2.new(0, 250, 0, 0)
+Panels.BackgroundTransparency = 1
+Panels.Parent = MainFrame
+-- OVERVIEW TAB PANEL (Inventory)
+local OverviewPanel = Instance.new("Frame")
+OverviewPanel.Name = "OverviewPanel"
+OverviewPanel.Size = UDim2.new(1, 0, 1, 0)
+OverviewPanel.BackgroundTransparency = 1
+OverviewPanel.Parent = Panels
+local OverviewTitle = Instance.new("TextLabel")
+OverviewTitle.Size = UDim2.new(1, -60, 0, 30)
+OverviewTitle.Position = UDim2.new(0, 30, 0, 25)
+OverviewTitle.BackgroundTransparency = 1
+OverviewTitle.Text = "🌱 Seed & Crop Inventory"
+OverviewTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+OverviewTitle.Font = Enum.Font.GothamBold
+OverviewTitle.TextSize = 24
+OverviewTitle.TextXAlignment = Enum.TextXAlignment.Left
+OverviewTitle.Parent = OverviewPanel
+local OverviewSubtitle = Instance.new("TextLabel")
+OverviewSubtitle.Size = UDim2.new(1, -60, 0, 15)
+OverviewSubtitle.Position = UDim2.new(0, 30, 0, 55)
+OverviewSubtitle.BackgroundTransparency = 1
+OverviewSubtitle.Text = "Real-time listing of seeds and mutations in your collection"
+OverviewSubtitle.TextColor3 = Color3.fromRGB(150, 150, 150)
+OverviewSubtitle.Font = Enum.Font.Gotham
+OverviewSubtitle.TextSize = 12
+OverviewSubtitle.TextXAlignment = Enum.TextXAlignment.Left
+OverviewSubtitle.Parent = OverviewPanel
+local PlantScroll = Instance.new("ScrollingFrame")
+PlantScroll.Size = UDim2.new(1, -60, 1, -110)
+PlantScroll.Position = UDim2.new(0, 30, 0, 90)
+PlantScroll.BackgroundTransparency = 1
+PlantScroll.BorderSizePixel = 0
+PlantScroll.ScrollBarThickness = 3
+PlantScroll.ScrollBarImageColor3 = Color3.fromRGB(255, 255, 255)
+PlantScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+PlantScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+PlantScroll.Parent = OverviewPanel
+local Grid = Instance.new("UIGridLayout")
+Grid.CellSize = UDim2.new(0, 155, 0, 175)
+Grid.CellPadding = UDim2.new(0, 15, 0, 15)
+Grid.Parent = PlantScroll
+-- AUTOMATION SETTINGS TAB PANEL
+local SettingsPanel = Instance.new("Frame")
+SettingsPanel.Name = "SettingsPanel"
+SettingsPanel.Size = UDim2.new(1, 0, 1, 0)
+SettingsPanel.BackgroundTransparency = 1
+SettingsPanel.Visible = false
+SettingsPanel.Parent = Panels
+local SettingsTitle = Instance.new("TextLabel")
+SettingsTitle.Size = UDim2.new(1, -60, 0, 30)
+SettingsTitle.Position = UDim2.new(0, 30, 0, 25)
+SettingsTitle.BackgroundTransparency = 1
+SettingsTitle.Text = "⚙️ Kaitun Farm Automation"
+SettingsTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+SettingsTitle.Font = Enum.Font.GothamBold
+SettingsTitle.TextSize = 24
+SettingsTitle.TextXAlignment = Enum.TextXAlignment.Left
+SettingsTitle.Parent = SettingsPanel
+local SettingsSubtitle = Instance.new("TextLabel")
+SettingsSubtitle.Size = UDim2.new(1, -60, 0, 15)
+SettingsSubtitle.Position = UDim2.new(0, 30, 0, 55)
+SettingsSubtitle.BackgroundTransparency = 1
+SettingsSubtitle.Text = "Toggle farming modules, auto-buy settings, and mail relays"
+SettingsSubtitle.TextColor3 = Color3.fromRGB(150, 150, 150)
+SettingsSubtitle.Font = Enum.Font.Gotham
+SettingsSubtitle.TextSize = 12
+SettingsSubtitle.TextXAlignment = Enum.TextXAlignment.Left
+SettingsSubtitle.Parent = SettingsPanel
+local SettingsScroll = Instance.new("ScrollingFrame")
+SettingsScroll.Size = UDim2.new(1, -60, 1, -110)
+SettingsScroll.Position = UDim2.new(0, 30, 0, 90)
+SettingsScroll.BackgroundTransparency = 1
+SettingsScroll.BorderSizePixel = 0
+SettingsScroll.ScrollBarThickness = 3
+SettingsScroll.ScrollBarImageColor3 = Color3.fromRGB(255, 255, 255)
+SettingsScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+SettingsScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+SettingsScroll.Parent = SettingsPanel
+local SettingsList = Instance.new("UIListLayout")
+SettingsList.SortOrder = Enum.SortOrder.LayoutOrder
+SettingsList.Padding = UDim.new(0, 8)
+SettingsList.Parent = SettingsScroll
+local layoutIndex = 0
+local function createSettingsToggle(name, labelText, defaultVal, callback)
+    local state = defaultVal
+    local Button = Instance.new("TextButton")
+    Button.Name = name
+    Button.LayoutOrder = layoutIndex
+    layoutIndex = layoutIndex + 1
+    Button.Size = UDim2.new(1, -10, 0, 32)
+    Button.BackgroundColor3 = state and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(20, 20, 20)
+    Button.BorderSizePixel = 0
+    Button.Text = labelText .. (state and " [ON]" or " [OFF]")
+    Button.TextColor3 = state and Color3.fromRGB(0, 0, 0) or Color3.fromRGB(255, 255, 255)
+    Button.Font = Enum.Font.Code
+    Button.TextSize = 12
+    Button.Parent = SettingsScroll
+    
+    local Corner = Instance.new("UICorner")
+    Corner.CornerRadius = UDim.new(0, 4)
+    Corner.Parent = Button
+    
+    local Stroke = Instance.new("UIStroke")
+    Stroke.Color = Color3.fromRGB(60, 60, 60)
+    Stroke.Thickness = 1
+    Stroke.Parent = Button
+    
+    Button.MouseButton1Click:Connect(function()
+        state = not state
+        Button.BackgroundColor3 = state and Color3.fromRGB(255, 255, 255) or Color3.fromRGB(20, 20, 20)
+        Button.TextColor3 = state and Color3.fromRGB(0, 0, 0) or Color3.fromRGB(255, 255, 255)
+        Button.Text = labelText .. (state and " [ON]" or " [OFF]")
+        callback(state)
+    end)
+    return Button
+end
+local function createSettingsAction(name, labelText, callback)
+    local Button = Instance.new("TextButton")
+    Button.Name = name
+    Button.LayoutOrder = layoutIndex
+    layoutIndex = layoutIndex + 1
+    Button.Size = UDim2.new(1, -10, 0, 32)
+    Button.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    Button.BorderSizePixel = 0
+    Button.Text = labelText
+    Button.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Button.Font = Enum.Font.Code
+    Button.TextSize = 12
+    Button.Parent = SettingsScroll
+    
+    local Corner = Instance.new("UICorner")
+    Corner.CornerRadius = UDim.new(0, 4)
+    Corner.Parent = Button
+    
+    local Stroke = Instance.new("UIStroke")
+    Stroke.Color = Color3.fromRGB(60, 60, 60)
+    Stroke.Thickness = 1
+    Stroke.Parent = Button
+    
+    Button.MouseButton1Click:Connect(function()
+        Button.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+        Button.TextColor3 = Color3.fromRGB(0, 0, 0)
+        task.wait(0.1)
+        Button.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+        Button.TextColor3 = Color3.fromRGB(255, 255, 255)
+        callback()
+    end)
+    return Button
+end
+local function createTextBox(name, labelText, placeholderText, defaultVal, callback)
+    local Container = Instance.new("Frame")
+    Container.Name = name
+    Container.LayoutOrder = layoutIndex
+    layoutIndex = layoutIndex + 1
+    Container.Size = UDim2.new(1, -10, 0, 40)
+    Container.BackgroundTransparency = 1
+    Container.Parent = SettingsScroll
+    
+    local Label = Instance.new("TextLabel")
+    Label.Size = UDim2.new(0.4, 0, 1, 0)
+    Label.BackgroundTransparency = 1
+    Label.Text = labelText
+    Label.TextColor3 = Color3.fromRGB(200, 200, 200)
+    Label.Font = Enum.Font.Gotham
+    Label.TextSize = 12
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+    Label.Parent = Container
+    
+    local Box = Instance.new("TextBox")
+    Box.Size = UDim2.new(0.6, 0, 0.8, 0)
+    Box.Position = UDim2.new(0.4, 0, 0.1, 0)
+    Box.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    Box.BorderSizePixel = 0
+    Box.Text = tostring(defaultVal)
+    Box.PlaceholderText = placeholderText
+    Box.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Box.Font = Enum.Font.Code
+    Box.TextSize = 12
+    Box.Parent = Container
+    
+    local Corner = Instance.new("UICorner")
+    Corner.CornerRadius = UDim.new(0, 4)
+    Corner.Parent = Box
+    
+    local Stroke = Instance.new("UIStroke")
+    Stroke.Color = Color3.fromRGB(60, 60, 60)
+    Stroke.Thickness = 1
+    Stroke.Parent = Box
+    
+    Box.FocusLost:Connect(function()
+        callback(Box.Text)
+    end)
+end
+-- Create Automation settings controls
+createSettingsToggle("ToggleFarm", "Auto Collect Fruits", false, function(v) _G.AutoFarm = v end)
+createSettingsToggle("TogglePlant", "Auto Plant", false, function(v) _G.AutoPlant = v end)
+createSettingsToggle("ToggleBuy", "Auto Shop Seeds/Gears", false, function(v) _G.AutoBuy = v end)
+createSettingsToggle("ToggleSell", "Auto Sell (Pack >= 100)", false, function(v) _G.AutoSell = v end)
+createSettingsToggle("ToggleEvent", "Auto Collect Seeds Event", false, function(v) _G.EventSeeds = v end)
+createSettingsToggle("ToggleLag", "Low Graphics Mode", false, function(v) _G.LowGraphics = v; setLowGraphics(v) end)
+createTextBox("MailboxTargetId", "Target Mailbox ID:", "Enter Roblox ID", _G.idpl, function(txt) _G.idpl = tonumber(txt) or _G.idpl end)
+
+createSettingsAction("ActionSend", "Send Mail (Gold/Rainbow)", sand)
+createSettingsAction("ActionHop", "Server Hop (Low Players)", serverHopHop)
+-- Navigation button wiring
+OverviewTabBtn.MouseButton1Click:Connect(function()
+    OverviewTabBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    OverviewTabBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
+    SettingsTabBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    SettingsTabBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    OverviewPanel.Visible = true
+    SettingsPanel.Visible = false
+end)
+SettingsTabBtn.MouseButton1Click:Connect(function()
+    SettingsTabBtn.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    SettingsTabBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
+    OverviewTabBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    OverviewTabBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    SettingsPanel.Visible = true
+    OverviewPanel.Visible = false
+end)
+local function toggleUI()
+    local isVisible = MainFrame.Visible
+    MainFrame.Visible = not isVisible
+    ToggleButton.Visible = isVisible
+end
+CloseGuiBtn.MouseButton1Click:Connect(toggleUI)
+ToggleButton.MouseButton1Click:Connect(toggleUI)
+UserInputService.InputBegan:Connect(function(input, gpe)
+    if not gpe and input.KeyCode == Enum.KeyCode.RightControl then
+        toggleUI()
+    end
+end)
+-- Dynamic Seed Card Generator
+local cardInstances = {}
+local function createDynamicCard(name)
+    local Card = Instance.new("Frame")
+    Card.Name = name .. "_Card"
+    Card.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    Card.BorderSizePixel = 0
+    Card.Parent = PlantScroll
+    
+    local CardCorner = Instance.new("UICorner")
+    CardCorner.CornerRadius = UDim.new(0, 8)
+    CardCorner.Parent = Card
+    
+    local CardStroke = Instance.new("UIStroke")
+    CardStroke.Color = Color3.fromRGB(35, 35, 35)
+    CardStroke.Thickness = 1
+    CardStroke.Parent = Card
+    
+    local Accent = Instance.new("Frame")
+    Accent.Size = UDim2.new(1, 0, 0, 4)
+    Accent.BackgroundColor3 = (name:find("Gold") and Color3.fromRGB(235, 177, 52)) or (name:find("Rainbow") and Color3.fromRGB(166, 75, 255)) or Color3.fromRGB(255, 255, 255)
+    Accent.BorderSizePixel = 0
+    Accent.Parent = Card
+    
+    local AccentCorner = Instance.new("UICorner")
+    AccentCorner.CornerRadius = UDim.new(0, 8)
+    AccentCorner.Parent = Accent
+    
+    local Image = Instance.new("ImageLabel")
+    Image.Size = UDim2.new(0, 68, 0, 68)
+    Image.Position = UDim2.new(0.5, -34, 0.15, 0)
+    Image.BackgroundTransparency = 1
+    Image.Image = getCropIcon(name)
+    Image.Parent = Card
+    local CropNameLabel = Instance.new("TextLabel")
+    CropNameLabel.Size = UDim2.new(1, -16, 0, 18)
+    CropNameLabel.Position = UDim2.new(0, 8, 0.58, 0)
+    CropNameLabel.BackgroundTransparency = 1
+    CropNameLabel.Text = name
+    CropNameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    CropNameLabel.Font = Enum.Font.GothamBold
+    CropNameLabel.TextSize = 12
+    CropNameLabel.TextScaled = true
+    CropNameLabel.TextXAlignment = Enum.TextXAlignment.Center
+    CropNameLabel.Parent = Card
+    local MutationLabel = Instance.new("TextLabel")
+    MutationLabel.Size = UDim2.new(1, -16, 0, 15)
+    MutationLabel.Position = UDim2.new(0, 8, 0.7, 0)
+    MutationLabel.BackgroundTransparency = 1
+    MutationLabel.Text = "✦ Normal"
+    MutationLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
+    MutationLabel.Font = Enum.Font.Gotham
+    MutationLabel.TextSize = 10
+    MutationLabel.TextXAlignment = Enum.TextXAlignment.Center
+    MutationLabel.Parent = Card
+    local CountLabel = Instance.new("TextLabel")
+    CountLabel.Size = UDim2.new(1, -16, 0, 15)
+    CountLabel.Position = UDim2.new(0, 8, 0.82, 0)
+    CountLabel.BackgroundTransparency = 1
+    CountLabel.Text = "Count: 0"
+    CountLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    CountLabel.Font = Enum.Font.Code
+    CountLabel.TextSize = 11
+    CountLabel.TextXAlignment = Enum.TextXAlignment.Center
+    CountLabel.Parent = Card
+    
+    return {Count = CountLabel, Mutation = MutationLabel, Icon = Image, Card = Card}
+end
+-- Stats auto-updater thread
+task.spawn(function()
+    while ScreenGui.Parent do
+        pcall(function()
+            local sheckles = LocalPlayer:WaitForChild("leaderstats"):WaitForChild("Sheckles")
+            ShecklesValue.Text = "💰 " .. string.format("%s", tostring(sheckles.Value):reverse():gsub("(%d%d%d)","%1,"):reverse():gsub("^,",""))
+            
+            local replica = PlayerStateClient:GetLocalReplica()
+            local seedCount = 0
+            
+            if replica and replica.Data and replica.Data.Inventory then
+                local inv = replica.Data.Inventory
+                local seeds = inv.Seeds
+                
+                for name, count in pairs(seeds) do
+                    if count > 0 then
+                        seedCount = seedCount + count
+                        local card = cardInstances[name]
+                        if not card then
+                            card = createDynamicCard(name)
+                            cardInstances[name] = card
+                        end
+                        card.Card.Visible = true
+                        card.Count.Text = "Count: " .. tostring(count)
+                        if name == "Gold" or name:find("Gold") then
+                            card.Mutation.Text = "✦ Gold"
+                            card.Mutation.TextColor3 = Color3.fromRGB(235, 177, 52)
+                        elseif name == "Rainbow" or name:find("Rainbow") then
+                            card.Mutation.Text = "✦ Rainbow"
+                            card.Mutation.TextColor3 = Color3.fromRGB(166, 75, 255)
+                        else
+                            card.Mutation.Text = "✦ Normal"
+                            card.Mutation.TextColor3 = Color3.fromRGB(200, 200, 200)
+                        end
+                    else
+                        local card = cardInstances[name]
+                        if card then
+                            card.Card.Visible = false
+                        end
+                    end
+                end
+            end
+            
+            TotalPlantsValue.Text = "🌱 " .. tostring(seedCount)
+        end)
+        task.wait(1)
+    end
+end)
+
+
+-- Main execution threads
+task.spawn(function()
+    while ALIVE do
+        if _G.AutoFarm then
+            pcall(coolectf)
+        end
+        task.wait()
+    end
+end)
+task.spawn(function()
+    while ALIVE do
+        if _G.AutoPlant then
+            pcall(autoPlantAllPlots)
+        end
+        task.wait(2)
+    end
+end)
+task.spawn(function()
+    while ALIVE do
+        if _G.AutoBuy then
+            pcall(shopseed)
+        end
+        if _G.AutoBuygear then
+            pcall(shopgear)
+        end
+        task.wait(3)
+    end
+end)
+task.spawn(function()
+    while ALIVE do
+        if _G.AutoSell then
+            pcall(sell)
+        end
+        task.wait(1)
+    end
+end)
+task.spawn(function()
+    while ALIVE do
+        if _G.EventSeeds then
+            pcall(tpseedevent)
+        end
+        task.wait(0.1)
+    end
+end)
+task.spawn(function()
+    while ALIVE do
+        local countpl = #Players:GetChildren()
+        if countpl >=6 then
+           serverHopHop()
+        end
+        task.wait(0.1)
+    end
+end)
+print("Kaitun Premium Dashboard Loaded successfully!")
